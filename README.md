@@ -24,6 +24,8 @@ Explore, adapt, and edit MIDI for a music-box instrument. The browser app maps n
 
 Your current roll, edits, BPM, instrument range, sound selection, and export settings are saved in this browser and restored on reload. Uploaded audio samples are also cached locally when browser storage is available. Clear and New replace the saved roll, so cleared notes do not return after a reload. **Unload MIDI** removes the saved roll and returns to the initial import screen.
 
+Edit the project name beside BPM to rename the roll. The name is saved locally and used for MIDI, PDF, and audio export filenames.
+
 ## Quick start
 
 From the `musicbox_strip_tool` directory:

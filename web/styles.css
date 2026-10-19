@@ -78,7 +78,9 @@ button { color: inherit; }
 .pdf-pages-label input[type="range"] { width: 100px; }
 .tempo-control input:disabled { opacity: .5; }
 .song-meta { min-width: 100px; flex: 1; display: flex; flex-direction: column; gap: 4px; padding-left: 9px; overflow: hidden; }
-.song-meta strong { font-size: 12px; font-weight: 650; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.song-meta input { width: 100%; min-width: 0; height: 28px; padding: 3px 7px; border: 1px solid var(--line); border-radius: 5px; background: white; color: var(--ink); font-size: 12px; font-weight: 650; }
+.song-meta input:focus { outline: 2px solid #8cc5a6; outline-offset: 1px; }
+.song-meta input:disabled { background: transparent; border-color: transparent; }
 .song-meta span { color: var(--muted); font-size: 10px; }
 .zoom-control { display: flex; gap: 7px; align-items: center; color: var(--muted); font-size: 10px; letter-spacing: .1em; }
 .zoom-control strong { min-width: 48px; text-align: center; color: var(--ink); font-size: 11px; letter-spacing: 0; }
@@ -130,6 +132,7 @@ select:focus-visible { outline: 2px solid #8cc5a6; outline-offset: 1px; }
 .roll-frame { flex: 1 1 auto; height: auto; min-height: 0; border: 1px solid #d4dfdb; border-radius: 10px; background: #fff; position: relative; overflow: hidden; }
 /* Fit loaded lanes; shrink and scroll only when they exceed the editor height. */
 .roll-frame.has-midi { flex: 0 1 auto; }
+.roll-frame:not(.has-midi) { min-height: min(320px, 45vh); }
 .roll-frame.file-drop-active { outline: 2px solid var(--mint-dark); outline-offset: -2px; }
 .roll-frame.file-drop-active::after { content: "Drop MIDI to load this piano roll"; position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; color: var(--mint-dark); background: #edf7efed; font-size: 16px; font-weight: 650; text-align: center; pointer-events: none; }
 .editor-heading { flex-wrap: wrap; gap: 10px; }

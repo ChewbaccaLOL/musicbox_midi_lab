@@ -402,7 +402,9 @@ function renderAll() {
   saveProject();
   renderScale();
   if (!loaded) {
-    els["song-title"].textContent = "No MIDI loaded";
+    els["song-title"].value = "";
+    els["song-title"].disabled = true;
+    document.title = "Music Box MIDI Lab";
     els["song-details"].textContent = "Choose a MIDI file to explore its mapped notes";
     els["note-count"].textContent = "0 notes";
     els["zoom-value"].textContent = `${state.barsVisible} bars`;
@@ -554,7 +556,9 @@ function renderAll() {
 
   els.playhead.style.height = `${els.lanes.offsetHeight}px`;
   els["note-count"].textContent = `${playableNotes.length} / ${state.notes.length} notes · ${state.scale.length} lanes`;
-  els["song-title"].textContent = state.midiName;
+  els["song-title"].disabled = false;
+  if (document.activeElement !== els["song-title"]) els["song-title"].value = state.midiName;
+  document.title = `${state.midiName} - Music Box MIDI Lab`;
   els["song-details"].textContent = formatDuration(state.totalTicks);
   const presetLabel = state.preset === "photo" ? "Photo strip"
     : state.preset.startsWith("chromatic") ? `Chromatic ${state.preset.replace("chromatic", "")}`
@@ -857,7 +861,7 @@ function exportMidi() {
 }
 
 function baseName() {
-  return state.midiName.replace(/\.(midi?|MIDI?)$/, "") || "musicbox";
+  return state.midiName.replace(/\.midi?$/i, "").replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").replace(/[. ]+$/, "").trim() || "musicbox";
 }
 
 function encodeWav(buffer) {
@@ -980,10 +984,15 @@ function unloadRoll() {
   els["midi-file"].value = "";
   els["roll-scroll"].scrollLeft = 0;
   els["roll-scroll"].scrollTop = 0;
-  if (!ProjectCache.clear()) toast("Could not clear the saved roll in this browser");
+  let cacheCleared = false;
+  try {
+    if (typeof ProjectCache.clear === "function") cacheCleared = ProjectCache.clear();
+    else { localStorage.removeItem(ProjectCache.KEY); cacheCleared = true; }
+  } catch {}
   mapNotes();
   renderAll();
   setStatus("Ready for a MIDI file");
+  if (!cacheCleared) toast("The roll was unloaded, but its saved copy could not be cleared");
 }
 
 function resetRoll(newSong = false) {
@@ -1051,6 +1060,19 @@ els["midi-file"].addEventListener("change", event => {
 els["new-roll"].addEventListener("click", () => resetRoll(true));
 els["clear-roll"].addEventListener("click", () => resetRoll());
 els["unload-roll"].addEventListener("click", unloadRoll);
+els["song-title"].addEventListener("input", () => {
+  if (!state.midiName) return;
+  const name = els["song-title"].value.trim();
+  if (name) state.midiName = name;
+  document.title = `${state.midiName} - Music Box MIDI Lab`;
+  saveProject();
+});
+els["song-title"].addEventListener("change", () => {
+  els["song-title"].value = state.midiName;
+});
+els["song-title"].addEventListener("keydown", event => {
+  if (event.key === "Enter") els["song-title"].blur();
+});
 
 let fileDragDepth = 0;
 function isFileDrag(event) {

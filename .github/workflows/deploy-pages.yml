@@ -25,10 +25,12 @@ jobs:
         uses: actions/checkout@v4
       - name: Configure Pages
         uses: actions/configure-pages@v5
+      - name: Version scripts and styles for reliable browser updates
+        run: python tools/prepare_site.py web _site
       - name: Upload static app
         uses: actions/upload-pages-artifact@v3
         with:
-          path: web
+          path: _site
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

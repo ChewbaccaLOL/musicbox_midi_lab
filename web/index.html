@@ -38,7 +38,7 @@
         <button id="unload-roll" class="button workspace-button" title="Remove the saved roll and return to the import screen" disabled>Unload MIDI</button>
       </div>
       <label class="tempo-control"><span>BPM</span><input id="bpm" type="number" min="20" max="300" value="120" disabled aria-label="Tempo in BPM"></label>
-      <div class="song-meta"><strong id="song-title">No MIDI loaded</strong><span id="song-details">Choose a MIDI file to explore its mapped notes</span></div>
+      <div class="song-meta"><input id="song-title" type="text" aria-label="Project name" placeholder="No MIDI loaded" title="Rename this project and its export files" maxlength="120" autocomplete="off" disabled><span id="song-details">Choose a MIDI file to explore its mapped notes</span></div>
       <div class="zoom-control"><span>VIEW</span><button id="zoom-out" class="icon-button" aria-label="Zoom out" disabled>−</button><strong id="zoom-value">2 bars</strong><button id="zoom-in" class="icon-button" aria-label="Zoom in" disabled>＋</button></div>
     </section>
 

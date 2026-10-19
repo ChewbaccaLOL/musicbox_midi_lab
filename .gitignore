@@ -12,3 +12,4 @@ split_pages.pdf
 # Local editor state
 .vscode/
 .idea/
+_site/

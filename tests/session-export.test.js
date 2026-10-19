@@ -11,14 +11,16 @@ const storage = { setItem: (k, v) => stored.set(k, v), getItem: k => stored.get(
   removeItem: k => stored.delete(k) };
 const elements = new Map();
 const els = new Proxy({}, { get: (_, key) => {
-  if (!elements.has(key)) elements.set(key, {value: "", checked: false});
+  if (!elements.has(key)) elements.set(key, {value: "", checked: false, listeners: {},
+    addEventListener(type, listener) { this.listeners[type] = listener; }});
   return elements.get(key);
 }});
 let downloaded;
 const context = vm.createContext({
-  els, ProjectCache: { save: (s, o) => cache.save(s, o, storage), load: () => cache.load(storage),
+  els, ProjectCache: { KEY: cache.KEY, save: (s, o) => cache.save(s, o, storage), load: () => cache.load(storage),
     clear: () => cache.clear(storage) },
   setStatus() {}, toast() {}, renderAll() {},
+  document: { title: "", activeElement: null },
   Blob: function (parts, options) { this.parts = parts; this.type = options.type; },
   download: (blob, name) => { downloaded = { blob, name }; },
 });
@@ -66,6 +68,26 @@ cache.save(snapshot, snapshot.settings, storage);
 run("restoreProject();");
 context.stopPlayback = () => run("state.isPlaying=false; state.playbackStartTick=0;");
 run(source.slice(source.indexOf("function unloadRoll()"), source.indexOf("function resetRoll(")));
+// Execute the real no-project render path: state-only tests missed a failed redraw.
+run(source.slice(source.indexOf("function renderAll()"), source.indexOf("function setPreset(")));
+context.renderScale = () => {};
+let hasMidi;
+els["roll-frame"].classList = { toggle: (_, loaded) => { hasMidi = loaded; } };
+els.lanes.replaceChildren = els.ruler.replaceChildren = () => {};
+const clearCache = context.ProjectCache.clear;
+context.ProjectCache.clear = () => { throw new Error("Old/broken cache helper"); };
+run("unloadRoll();");
+assert.strictEqual(els["empty-state"].hidden, false);
+assert.strictEqual(els["roll-scroll"].hidden, true);
+assert.strictEqual(els["song-title"].disabled, true);
+assert.strictEqual(hasMidi, false);
+context.ProjectCache.clear = undefined;
+context.localStorage = storage;
+run("restoreProject(); unloadRoll();");
+assert.strictEqual(cache.load(storage), null, "An older helper must still clear storage");
+context.ProjectCache.clear = clearCache;
+cache.save(snapshot, snapshot.settings, storage);
+run("restoreProject();");
 const revision = run("state.importRevision");
 run("state.isPlaying=true; unloadRoll(); saveProject(); restoreProject();");
 assert.strictEqual(run("state.midiName"), "");
@@ -76,6 +98,21 @@ assert.strictEqual(cache.load(storage), null);
 assert.strictEqual(els["midi-file"].value, "");
 assert.strictEqual(els["roll-scroll"].scrollLeft, 0);
 console.log("PASS Unload cancels playback/imports and removes the saved roll across reloads");
+context.renderAll = () => {};
+cache.save(snapshot, snapshot.settings, storage);
+run("restoreProject();");
+
+run(source.slice(source.indexOf('els["song-title"].addEventListener("input"'), source.indexOf("let fileDragDepth")));
+els["song-title"].value = "Evening melody";
+els["song-title"].listeners.input();
+assert.strictEqual(run("state.midiName"), "Evening melody");
+assert.strictEqual(cache.load(storage).midiName, "Evening melody");
+assert(context.document.title.startsWith("Evening melody"));
+els["song-title"].value = "";
+els["song-title"].listeners.input();
+els["song-title"].listeners.change();
+assert.strictEqual(els["song-title"].value, "Evening melody", "Blank editing must not unload the roll");
+console.log("PASS editable project name updates saved state and tab title without unloading on blank input");
 cache.save(snapshot, snapshot.settings, storage);
 run("restoreProject();");
 
@@ -88,6 +125,10 @@ assert.strictEqual(downloaded.name, "edited_edited.mid");
 assert.strictEqual(midi[22], 0);
 assert.strictEqual(midi[23], 0xc0, "Instrument must precede the first note-on");
 assert.strictEqual(midi[24], 10, "Music box program is zero-based 10");
+assert.strictEqual(run('state.midiName="My / evening.MiD"; baseName();'), "My _ evening");
+run('state.midiName="Evening melody"; exportMidi();');
+assert.strictEqual(downloaded.name,"Evening melody_edited.mid");
+run('state.midiName="edited.mid";');
 context.midiBuffer = midi.buffer.slice(midi.byteOffset, midi.byteOffset + midi.byteLength);
 assert(Math.abs(run("parseMidi(midiBuffer).bpm") - 93) < 0.001);
 assert.strictEqual(run("parseMidi(midiBuffer).notes.length"), 2);
