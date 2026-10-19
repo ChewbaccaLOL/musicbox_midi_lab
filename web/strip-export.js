@@ -9,7 +9,8 @@
     const { notes, scale, ticksPerBeat, meter, totalTicks, enforceRepeats } = options;
     const barTicks = ticksPerBeat * meter.numerator * 4 / meter.denominator;
     const totalBars = Math.max(1, Math.ceil(totalTicks / barTicks));
-    const barsPerPage = options.singlePage ? totalBars : Math.max(1, Math.min(9, Math.round(options.barsPerPage) || 2));
+    const selectedBars = Math.max(1, Math.min(9, Math.round(options.barsPerPage) || 2));
+    const barsPerPage = options.singlePage ? totalBars : selectedBars;
     const pageCount = Math.ceil(totalBars / barsPerPage);
     const pitches = [...scale].sort((a, b) => a - b);
     const pages = [];
@@ -20,7 +21,10 @@
       const commands = [];
       const text = (x, y, value, size = 9, anchor = "start") => commands.push({ type: "text", x, y, value: clean(value), size, anchor });
       const line = (x1, y1, x2, y2, gray = 0.7, width = 0.4) => commands.push({ type: "line", x1, y1, x2, y2, gray, width });
-      const left = 46, right = WIDTH - 30, top = 96, bottom = HEIGHT - 58;
+      // A continuous strip keeps the selected bars-per-page spacing and grows
+      // the paper instead of squeezing the entire arrangement onto A4.
+      const height = options.singlePage ? 154 + (HEIGHT - 154) / selectedBars * barsOnPage : HEIGHT;
+      const left = 46, right = WIDTH - 30, top = 96, bottom = height - 58;
       const laneWidth = (right - left) / pitches.length;
       text(left, 34, "Music Box MIDI Lab", 17);
       text(left, 53, `Bars ${firstBar + 1}-${firstBar + barsOnPage}  |  ${pitches.length} lanes  |  ${options.bpm} BPM`, 10);
@@ -37,7 +41,7 @@
       for (let slot = 0; slot <= slots; slot++) {
         const isBar = slot % slotsPerBar === 0;
         const isBeat = slot % 4 === 0;
-        // Avoid a solid gray field when the whole song is squeezed onto one page.
+        // Avoid overly dense subdivisions at compact bars-per-page settings.
         if (!isBar && (bottom - top) / slots < 3 && !isBeat) continue;
         if (!isBar && isBeat && (bottom - top) / slots * 4 < 3) continue;
         const y = top + slot / slots * (bottom - top);
@@ -53,9 +57,9 @@
           y: top + (note.tick - startTick) / (endTick - startTick) * (bottom - top),
           radius: Math.min(2.5, laneWidth * 0.28), folded: Boolean(note.folded), repeated: Boolean(note.repeated) });
       }
-      text(left, HEIGHT - 32, "Filled: mapped note   |   Ring: octave-folded note   |   Cross: repeated tine (when included)", 8);
-      text(left, HEIGHT - 18, `1/16-note timing grid  |  Repeat enforcement: ${enforceRepeats ? "on - flagged notes omitted" : "off - flagged notes included"}`, 8);
-      pages.push({ width: WIDTH, height: HEIGHT, commands });
+      text(left, height - 32, "Filled: mapped note   |   Ring: octave-folded note   |   Cross: repeated tine (when included)", 8);
+      text(left, height - 18, `1/16-note timing grid  |  Repeat enforcement: ${enforceRepeats ? "on - flagged notes omitted" : "off - flagged notes included"}`, 8);
+      pages.push({ width: WIDTH, height, commands });
     }
     return pages;
   }

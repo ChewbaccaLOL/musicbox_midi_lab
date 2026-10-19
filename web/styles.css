@@ -126,6 +126,10 @@ select:focus-visible { outline: 2px solid #8cc5a6; outline-offset: 1px; }
 .roll-frame { flex: 1 1 auto; height: auto; min-height: 0; border: 1px solid #d4dfdb; border-radius: 10px; background: #fff; position: relative; overflow: hidden; }
 /* Fit loaded lanes; shrink and scroll only when they exceed the editor height. */
 .roll-frame.has-midi { flex: 0 1 auto; }
+.roll-frame.file-drop-active { outline: 2px solid var(--mint-dark); outline-offset: -2px; }
+.roll-frame.file-drop-active::after { content: "Drop MIDI to load this piano roll"; position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; color: var(--mint-dark); background: #edf7efed; font-size: 16px; font-weight: 650; text-align: center; pointer-events: none; }
+.editor-heading { flex-wrap: wrap; gap: 10px; }
+.editor-tools { flex-wrap: wrap; justify-content: flex-end; gap: 12px; }
 .empty-state { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; background: radial-gradient(ellipse at 52% 55%, #edf7ef 0, #f8faf6 45%, #fbfcf8 80%); }
 .empty-glyph { height: 52px; display: flex; gap: 6px; align-items: end; margin-bottom: 17px; }
 .empty-glyph span { display: block; width: 10px; border: 2px solid var(--mint-dark); border-radius: 50%; transform: rotate(-30deg); }

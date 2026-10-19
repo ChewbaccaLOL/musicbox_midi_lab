@@ -32,7 +32,7 @@ python -m http.server 8765 --directory web
 
 Open [localhost:8765](http://localhost:8765), then:
 
-1. **Load** a `.mid` or `.midi` file.
+1. **Load** a `.mid` or `.midi` file with the picker or drop it onto the piano roll. You can drop a replacement over an existing arrangement, or choose **New 4 bars** to compose from scratch.
 2. **Map** it to your instrument’s range and adjust notes in the piano roll.
 3. **Listen** to the arrangement and check repeated-tine warnings.
 4. **Export** MIDI, use **Download PDF** to save a strip directly, or choose **Print** to open the printer dialog.
@@ -44,10 +44,10 @@ Open [localhost:8765](http://localhost:8765), then:
 | Step | What you can do |
 | :--- | :--- |
 | 🎼 **Map** | Choose the photographed 30-note strip, chromatic 15/20/30-note presets, a MIDI-adapted range, or a custom range. |
-| ✏️ **Edit** | Click to add or remove notes; drag to change timing and pitch. Notes snap to 1/16-note slots. |
-| 🔊 **Listen** | Set BPM, seek with the playhead, choose a built-in voice or load an audio sample, and adjust volume. |
+| ✏️ **Edit** | Click to add or remove notes; drag to change timing and pitch. Notes snap to 1/16-note slots. **New 4 bars** starts an empty arrangement; **Clear** removes all notes while keeping the current instrument and tempo. The roll grows by two bars when notes reach its last bar and shrinks in two-bar steps as trailing notes are removed, with a four-bar minimum. |
+| 🔊 **Listen** | Set BPM, seek with the playhead, choose a built-in voice or load an audio sample, and adjust volume. Playback loops at the end of the last occupied bar, excluding the editor's spare bars. |
 | 🔎 **Check** | Stripes flag strikes on the same mapped tine less than two 1/16-note slots apart, including across bars and within chords. Leave at least one empty slot between strikes. Repeat enforcement is on by default and omits flagged notes from playback and exports. |
-| 📄 **Export** | Download mapped MIDI or a vector PDF with 1–9 bars per landscape page or the whole song on one page. A separate Print button uses the same layout. PDF downloads have no browser-added dates or URLs; when printing, disable “Headers and footers” in the browser dialog to hide those. |
+| 📄 **Export** | Download mapped MIDI or a vector PDF with 1–9 bars per landscape page or the whole song on one long page at the same bar spacing. A separate Print button uses the same layout. PDF downloads have no browser-added dates or URLs; when printing, disable “Headers and footers” in the browser dialog to hide those. |
 
 ## Publish on GitHub Pages
 

@@ -1,7 +1,7 @@
 const PHOTO_NOTES = [48, 50, 55, 57, 59, 60, 62, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 86, 88];
 const PHOTO_LABELS = ["C", "D", "G", "A", "B", "C1", "D1", "E1", "F1", "F#1", "G1", "G#1", "A1", "A#1", "B1", "C2", "C#2", "D2", "D#2", "E2", "F2", "F#2", "G2", "G#2", "A2", "A#2", "B2", "C3", "D3", "E3"];
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-const els = Object.fromEntries(["midi-file", "sample-file", "sample-label", "sample-root", "sample-root-control", "bars-per-page", "bars-per-page-value", "single-page", "volume", "volume-value", "enforce-repeats", "preset", "range-controls", "range-low", "range-high", "scale-list", "scale-count", "voice", "sound-caption", "play", "stop", "rewind", "bpm", "song-title", "song-details", "status-text", "export-midi", "export-pdf", "print-strip", "zoom-out", "zoom-in", "zoom-value", "fit-song", "note-count", "mapping-summary", "roll-frame", "roll-scroll", "roll-content", "ruler", "lanes", "playhead", "empty-state", "toast"].map(id => [id, document.getElementById(id)]));
+const els = Object.fromEntries(["midi-file", "sample-file", "sample-label", "sample-root", "sample-root-control", "bars-per-page", "bars-per-page-value", "single-page", "volume", "volume-value", "enforce-repeats", "preset", "range-controls", "range-low", "range-high", "scale-list", "scale-count", "voice", "sound-caption", "play", "stop", "rewind", "bpm", "song-title", "song-details", "status-text", "export-midi", "export-pdf", "print-strip", "zoom-out", "zoom-in", "zoom-value", "fit-song", "clear-roll", "new-roll", "note-count", "mapping-summary", "roll-frame", "roll-scroll", "roll-content", "ruler", "lanes", "playhead", "empty-state", "toast"].map(id => [id, document.getElementById(id)]));
 
 const state = {
   midiName: "",
@@ -13,6 +13,9 @@ const state = {
   preset: "photo",
   barsVisible: 2,
   totalTicks: 0,
+  editorBars: 4,
+  loopTicks: 1920,
+  importRevision: 0,
   audioContext: null,
   masterGain: null,
   keepAliveOscillator: null,
@@ -151,6 +154,8 @@ function foldNote(note, scale) {
 }
 
 function mapNotes() {
+  const resumePlayback = state.isPlaying;
+  if (resumePlayback) stopPlayback();
   const seen = new Set();
   const lastTickByPitch = new Map();
   const gridStep = state.ticksPerBeat / 4;
@@ -178,6 +183,12 @@ function mapNotes() {
   state.totalTicks = state.notes.length
     ? Math.max(...state.notes.map(note => note.tick + note.duration))
     : 0;
+  const occupiedBars = state.notes.length
+    ? Math.floor(Math.max(...state.notes.map(note => note.tick)) / barTicks()) + 1 : 0;
+  state.editorBars = Math.max(4, 2 * Math.ceil((occupiedBars + 1) / 2));
+  state.loopTicks = Math.max(1, occupiedBars) * barTicks();
+  state.playbackStartTick = Math.min(state.playbackStartTick, state.editorBars * barTicks());
+  if (resumePlayback) play();
 }
 
 function barTicks() {
@@ -318,6 +329,7 @@ function renderAll() {
   els["export-midi"].disabled = !enforceableNotes.length;
   els["export-pdf"].disabled = !enforceableNotes.length;
   els["print-strip"].disabled = !enforceableNotes.length;
+  els["clear-roll"].disabled = !state.notes.length;
   renderScale();
   if (!loaded) return;
 
@@ -325,7 +337,7 @@ function renderAll() {
   const rowByPitch = new Map();
   const bTicks = barTicks();
   const gridStep = state.ticksPerBeat / 4;
-  const totalBars = Math.max(1, Math.ceil(state.totalTicks / bTicks));
+  const totalBars = state.editorBars;
   const visibleWidth = Math.max(800, els["roll-scroll"].clientWidth - 2);
   const pxPerBar = Math.max(190, visibleWidth / state.barsVisible);
   const slotWidth = pxPerBar * gridStep / bTicks;
@@ -494,6 +506,7 @@ function setPreset(preset) {
 }
 
 function adaptedScale(notes, laneCount) {
+  if (!notes.length) return Array.from({ length: laneCount }, (_, index) => 48 + index);
   const pitches = notes.map(note => note.originalNote);
   const center = (Math.min(...pitches) + Math.max(...pitches)) / 2;
   let bestLow = 0;
@@ -608,7 +621,7 @@ function play() {
   if (state.isPlaying) return stopPlayback();
   const context = ensureAudio();
   const current = state.playbackStartTick;
-  if (current >= state.totalTicks) state.playbackStartTick = 0;
+  if (current >= state.loopTicks) state.playbackStartTick = 0;
   state.playbackStartAudio = context.currentTime;
   state.playbackOriginTick = state.playbackStartTick;
   state.scheduledThrough = context.currentTime;
@@ -617,6 +630,7 @@ function play() {
   els.play.setAttribute("aria-label", "Pause");
   els.play.title = "Pause";
   setStatus("Playing live", true);
+  scheduleAudio();
   state.scheduleTimer = setInterval(scheduleAudio, 25);
   state.animationFrame = requestAnimationFrame(animatePlayhead);
 }
@@ -629,23 +643,29 @@ function scheduleAudio() {
   const originTick = state.playbackOriginTick;
   const secondsPerTick = 60 / state.bpm / state.ticksPerBeat;
   const horizon = now + 0.08;
-  for (const note of state.notes) {
-    if (note.tick < originTick || note.mappedNote === null || note.duplicate
-      || (els["enforce-repeats"].checked && note.repeated)) continue;
-    const when = startTime + (note.tick - originTick) * secondsPerTick;
-    if (when >= state.scheduledThrough && when <= horizon) {
-      playVoice(note.mappedNote, note.velocity, Math.max(when, now + 0.004));
+  const loopDuration = state.loopTicks * secondsPerTick;
+  // Skip stale windows after a background-tab pause instead of playing a burst
+  // of missed loops. Keep a short grace period for normal timer jitter.
+  const windowStart = Math.max(state.scheduledThrough, now - 0.025);
+  const firstCycle = Math.max(0, Math.floor((windowStart - startTime + originTick * secondsPerTick) / loopDuration));
+  const lastCycle = Math.floor((horizon - startTime + originTick * secondsPerTick) / loopDuration);
+  for (let cycle = firstCycle; cycle <= lastCycle; cycle++) {
+    for (const note of state.notes) {
+      if (note.mappedNote === null || note.duplicate
+        || (els["enforce-repeats"].checked && note.repeated)) continue;
+      const when = startTime + (note.tick - originTick) * secondsPerTick + cycle * loopDuration;
+      if (when >= windowStart && when < horizon) {
+        playVoice(note.mappedNote, note.velocity, Math.max(when, now + 0.004));
+      }
     }
   }
   state.scheduledThrough = horizon;
-  const endTime = startTime + (state.totalTicks - originTick) * secondsPerTick;
-  if (now > endTime + 0.15) stopPlayback();
 }
 
 function animatePlayhead() {
   if (!state.isPlaying) return;
   const elapsed = ensureAudio().currentTime - state.playbackStartAudio;
-  const tick = Math.min(state.totalTicks, state.playbackOriginTick + elapsed * state.bpm / 60 * state.ticksPerBeat);
+  const tick = (state.playbackOriginTick + elapsed * state.bpm / 60 * state.ticksPerBeat) % state.loopTicks;
   updatePlayhead(tick);
   state.animationFrame = requestAnimationFrame(animatePlayhead);
 }
@@ -659,6 +679,7 @@ function updatePlayhead(tick) {
     const viewport = els["roll-scroll"];
     const followAnchor = viewport.clientWidth * 0.9;
     const viewportX = playheadX - viewport.scrollLeft;
+    if (viewportX < 42) viewport.scrollLeft = Math.max(0, playheadX - 42);
     if (viewportX > followAnchor) {
       viewport.scrollLeft = playheadX - followAnchor;
     }
@@ -671,14 +692,14 @@ function seekFromPointer(clientX) {
   const pxPerBar = Math.max(190, Math.max(800, els["roll-scroll"].clientWidth - 2) / state.barsVisible);
   const rawTick = contentX / pxPerBar * barTicks();
   const gridStep = state.ticksPerBeat / 4;
-  const tick = Math.max(0, Math.min(state.totalTicks,
+  const tick = Math.max(0, Math.min(state.editorBars * barTicks(),
     Math.round(rawTick / gridStep) * gridStep));
   state.playbackStartTick = tick;
   updatePlayhead(tick);
 }
 
 els.playhead.addEventListener("pointerdown", event => {
-  if (event.button !== 0 || !state.notes.length) return;
+  if (event.button !== 0 || !state.midiName) return;
   state.cursorDrag = { wasPlaying: state.isPlaying };
   if (state.isPlaying) stopPlayback();
   els.playhead.setPointerCapture(event.pointerId);
@@ -719,7 +740,7 @@ function stopPlayback(reset = false) {
   els.play.setAttribute("aria-label", "Play");
   els.play.title = "Play";
   els.play.classList.remove("playing");
-  if (state.notes.length) setStatus("MIDI ready");
+  if (state.midiName) setStatus(state.notes.length ? "MIDI ready" : "Empty roll ready");
   if (reset) state.playbackStartTick = 0;
   updatePlayhead(state.playbackStartTick);
 }
@@ -814,16 +835,42 @@ function updateMeterAndBpm(parsed) {
   els.bpm.value = String(state.bpm);
 }
 
+function resetRoll(newSong = false) {
+  stopPlayback(true);
+  state.importRevision++;
+  state.notes = [];
+  state.drag = null;
+  state.cursorDrag = null;
+  if (newSong || !state.midiName) {
+    state.midiName = "Untitled.mid";
+    state.ticksPerBeat = 480;
+    state.meter = { numerator: 4, denominator: 4 };
+  }
+  state.barsVisible = 4;
+  els["midi-file"].value = "";
+  els["roll-scroll"].scrollLeft = 0;
+  els["roll-scroll"].scrollTop = 0;
+  mapNotes();
+  renderAll();
+  setStatus("Empty roll ready - click a slot to add notes");
+}
+
 function importMidi(file) {
   if (!file) return;
   stopPlayback(true);
+  const revision = ++state.importRevision;
   setStatus("Reading MIDI…", true);
   const reader = new FileReader();
   reader.onload = () => {
+    if (revision !== state.importRevision) return;
     try {
       const parsed = parseMidi(reader.result);
       state.midiName = file.name;
       state.notes = parsed.notes;
+      state.drag = null;
+      state.cursorDrag = null;
+      els["roll-scroll"].scrollLeft = 0;
+      els["roll-scroll"].scrollTop = 0;
       updateMeterAndBpm(parsed);
       state.preset = "adapt30";
       state.scale = adaptedScale(state.notes, 30);
@@ -839,11 +886,54 @@ function importMidi(file) {
       toast(error.message || "Could not read this MIDI file");
     }
   };
-  reader.onerror = () => { setStatus("Import failed"); toast("Could not read the selected MIDI file"); };
+  reader.onerror = () => {
+    if (revision !== state.importRevision) return;
+    setStatus("Import failed"); toast("Could not read the selected MIDI file");
+  };
   reader.readAsArrayBuffer(file);
 }
 
-els["midi-file"].addEventListener("change", event => importMidi(event.target.files[0]));
+els["midi-file"].addEventListener("change", event => {
+  importMidi(event.target.files[0]);
+  event.target.value = "";
+});
+els["new-roll"].addEventListener("click", () => resetRoll(true));
+els["clear-roll"].addEventListener("click", () => resetRoll());
+
+let fileDragDepth = 0;
+function isFileDrag(event) {
+  return event.dataTransfer && [...event.dataTransfer.types].includes("Files");
+}
+els["roll-frame"].addEventListener("dragenter", event => {
+  if (!isFileDrag(event)) return;
+  event.preventDefault();
+  fileDragDepth++;
+  els["roll-frame"].classList.add("file-drop-active");
+});
+els["roll-frame"].addEventListener("dragover", event => {
+  if (!isFileDrag(event)) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "copy";
+});
+els["roll-frame"].addEventListener("dragleave", () => {
+  fileDragDepth = Math.max(0, fileDragDepth - 1);
+  if (!fileDragDepth) els["roll-frame"].classList.remove("file-drop-active");
+});
+els["roll-frame"].addEventListener("drop", event => {
+  if (!isFileDrag(event)) return;
+  event.preventDefault();
+  fileDragDepth = 0;
+  els["roll-frame"].classList.remove("file-drop-active");
+  const files = [...event.dataTransfer.files];
+  if (files.length !== 1 || !/\.midi?$/i.test(files[0].name)) {
+    return toast("Drop one .mid or .midi file onto the piano roll");
+  }
+  importMidi(files[0]);
+});
+// Keep an accidental drop outside the roll from navigating away from the editor.
+for (const type of ["dragover", "drop"]) window.addEventListener(type, event => {
+  if (isFileDrag(event)) event.preventDefault();
+});
 els.preset.addEventListener("change", () => setPreset(els.preset.value));
 els["range-low"].addEventListener("change", applyRange);
 els["range-high"].addEventListener("change", applyRange);
@@ -876,7 +966,7 @@ els["enforce-repeats"].addEventListener("change", () => {
 });
 els["zoom-in"].addEventListener("click", () => { state.barsVisible = Math.max(1, state.barsVisible - 1); renderAll(); });
 els["zoom-out"].addEventListener("click", () => { state.barsVisible = Math.min(16, state.barsVisible + 1); renderAll(); });
-els["fit-song"].addEventListener("click", () => { state.barsVisible = Math.max(1, Math.ceil(state.totalTicks / barTicks())); renderAll(); });
+els["fit-song"].addEventListener("click", () => { state.barsVisible = state.editorBars; renderAll(); });
 els.bpm.addEventListener("change", () => {
   stopPlayback();
   const bpm = Number(els.bpm.value);

@@ -21,7 +21,7 @@
       <label class="pdf-pages-label" for="bars-per-page">Bars / page
         <input id="bars-per-page" type="number" min="1" max="9" step="1" value="2" disabled>
         <output id="bars-per-page-value">2</output>
-        <input id="single-page" type="checkbox" disabled><span>One page</span>
+        <input id="single-page" type="checkbox" disabled><span title="One long page using the selected bars-per-page spacing">Long page</span>
       </label>
       <button class="button button-quiet" id="print-strip" disabled>Print</button>
       <button class="button button-primary" id="export-pdf" disabled><span aria-hidden="true">↓</span> Download PDF</button>
@@ -86,13 +86,13 @@
       <section class="editor-area" aria-label="MIDI note editor">
         <div class="editor-heading">
           <div><p class="eyebrow">PIANO ROLL / MAPPED LANES</p><h1 id="editor-heading">Your music, in the instrument's range</h1></div>
-          <div class="editor-tools"><span id="note-count">0 notes</span><button id="fit-song" class="text-button" disabled>Fit song</button></div>
+          <div class="editor-tools"><span id="note-count">0 notes</span><button id="new-roll" class="text-button">New 4 bars</button><button id="clear-roll" class="text-button" disabled>Clear</button><button id="fit-song" class="text-button" disabled>Fit song</button></div>
         </div>
         <div class="roll-frame" id="roll-frame">
           <div class="empty-state" id="empty-state">
             <div class="empty-glyph" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
             <h2>Bring in a melody</h2>
-            <p>Open a MIDI file to see every note mapped to your music-box range.</p>
+            <p>Drop a MIDI file here or choose a file below. Use New 4 bars to start an empty roll.</p>
             <label class="file-button" for="midi-file">Choose MIDI file</label>
           </div>
           <div class="roll-scroll" id="roll-scroll" hidden>
@@ -104,7 +104,7 @@
           </div>
         </div>
         <div class="playback-controls" aria-label="Playback controls">
-          <div class="playback-context"><span id="mapping-summary">MIDI-adapted 30 mapping · octave fold</span><span class="control-hint">Drag playhead to seek · <kbd>SPACE</kbd> play / pause</span></div>
+          <div class="playback-context"><span id="mapping-summary">MIDI-adapted 30 mapping · octave fold</span><span class="control-hint">Loop to last occupied bar · <kbd>SPACE</kbd> play / pause</span></div>
           <div class="transport-buttons">
             <button class="icon-button" id="stop" title="Stop" aria-label="Stop" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/></svg></button>
             <button class="play-button" id="play" title="Play" aria-label="Play" disabled><svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5 18 12 8 19z"/></svg><svg class="pause-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="5.5" width="4" height="13" rx="1.3"/><rect x="13" y="5.5" width="4" height="13" rx="1.3"/></svg></button>
