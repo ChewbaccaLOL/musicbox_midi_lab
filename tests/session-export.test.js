@@ -7,7 +7,8 @@ const source = fs.readFileSync(path.join(__dirname, "../web/app.js"), "utf8");
 const core = source.slice(0, source.indexOf("const els ="))
   + source.slice(source.indexOf("const state ="), source.indexOf("function renderScale()"));
 const stored = new Map();
-const storage = { setItem: (k, v) => stored.set(k, v), getItem: k => stored.get(k) || null };
+const storage = { setItem: (k, v) => stored.set(k, v), getItem: k => stored.get(k) || null,
+  removeItem: k => stored.delete(k) };
 const elements = new Map();
 const els = new Proxy({}, { get: (_, key) => {
   if (!elements.has(key)) elements.set(key, {value: "", checked: false});
@@ -15,7 +16,8 @@ const els = new Proxy({}, { get: (_, key) => {
 }});
 let downloaded;
 const context = vm.createContext({
-  els, ProjectCache: { save: (s, o) => cache.save(s, o, storage), load: () => cache.load(storage) },
+  els, ProjectCache: { save: (s, o) => cache.save(s, o, storage), load: () => cache.load(storage),
+    clear: () => cache.clear(storage) },
   setStatus() {}, toast() {}, renderAll() {},
   Blob: function (parts, options) { this.parts = parts; this.type = options.type; },
   download: (blob, name) => { downloaded = { blob, name }; },
@@ -59,6 +61,23 @@ const unavailable = { getItem() { throw new Error("Denied"); }, setItem() { thro
 assert.strictEqual(cache.load(unavailable), null);
 assert.strictEqual(cache.save(snapshot, {}, unavailable), false);
 console.log("PASS reload restores edited roll/settings; cleared roll stays empty; corrupt/blocked storage is safe");
+
+cache.save(snapshot, snapshot.settings, storage);
+run("restoreProject();");
+context.stopPlayback = () => run("state.isPlaying=false; state.playbackStartTick=0;");
+run(source.slice(source.indexOf("function unloadRoll()"), source.indexOf("function resetRoll(")));
+const revision = run("state.importRevision");
+run("state.isPlaying=true; unloadRoll(); saveProject(); restoreProject();");
+assert.strictEqual(run("state.midiName"), "");
+assert.strictEqual(run("state.notes.length"), 0);
+assert.strictEqual(run("state.isPlaying"), false);
+assert.strictEqual(run("state.importRevision"), revision + 1);
+assert.strictEqual(cache.load(storage), null);
+assert.strictEqual(els["midi-file"].value, "");
+assert.strictEqual(els["roll-scroll"].scrollLeft, 0);
+console.log("PASS Unload cancels playback/imports and removes the saved roll across reloads");
+cache.save(snapshot, snapshot.settings, storage);
+run("restoreProject();");
 
 run(source.slice(source.indexOf("function writeVar("), source.indexOf("function encodeWav(")));
 run(`state.notes=[{tick:0,originalNote:60,duration:120,velocity:90,channel:9},

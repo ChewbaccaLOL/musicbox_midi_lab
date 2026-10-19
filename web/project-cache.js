@@ -40,6 +40,12 @@
       return project;
     } catch { return null; }
   }
+  function clear(storage) {
+    try {
+      (storage || root.localStorage).removeItem(KEY);
+      return true;
+    } catch { return false; }
+  }
   function sampleTransaction(mode, operation) {
     return new Promise((resolve, reject) => {
       const request = root.indexedDB.open("musicbox-midi-lab", 1);
@@ -64,7 +70,7 @@
     const record = await sampleTransaction("readonly", store => store.get("current"));
     return record && record.token === token ? record.file : null;
   }
-  const api = { KEY, save, load, saveSample, loadSample };
+  const api = { KEY, save, load, clear, saveSample, loadSample };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ProjectCache = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

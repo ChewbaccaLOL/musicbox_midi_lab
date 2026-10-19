@@ -1,7 +1,7 @@
 const PHOTO_NOTES = [48, 50, 55, 57, 59, 60, 62, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 86, 88];
 const PHOTO_LABELS = ["C", "D", "G", "A", "B", "C1", "D1", "E1", "F1", "F#1", "G1", "G#1", "A1", "A#1", "B1", "C2", "C#2", "D2", "D#2", "E2", "F2", "F#2", "G2", "G#2", "A2", "A#2", "B2", "C3", "D3", "E3"];
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-const els = Object.fromEntries(["midi-file", "sample-file", "sample-label", "sample-root", "sample-root-control", "bars-per-page", "bars-per-page-value", "single-page", "volume", "volume-value", "enforce-repeats", "preset", "range-controls", "range-low", "range-high", "scale-list", "scale-count", "voice", "sound-caption", "play", "stop", "rewind", "bpm", "song-title", "song-details", "status-text", "export-midi", "export-audio", "export-pdf", "print-strip", "zoom-out", "zoom-in", "zoom-value", "fit-song", "clear-roll", "new-roll", "note-count", "mapping-summary", "roll-frame", "roll-scroll", "roll-content", "ruler", "lanes", "playhead", "empty-state", "toast"].map(id => [id, document.getElementById(id)]));
+const els = Object.fromEntries(["midi-file", "sample-file", "sample-label", "sample-root", "sample-root-control", "bars-per-page", "bars-per-page-value", "single-page", "volume", "volume-value", "enforce-repeats", "preset", "range-controls", "range-low", "range-high", "scale-list", "scale-count", "voice", "sound-caption", "play", "stop", "rewind", "bpm", "song-title", "song-details", "status-text", "export-midi", "export-audio", "export-pdf", "print-strip", "zoom-out", "zoom-in", "zoom-value", "fit-song", "clear-roll", "new-roll", "unload-roll", "note-count", "mapping-summary", "roll-frame", "roll-scroll", "roll-content", "ruler", "lanes", "playhead", "empty-state", "toast"].map(id => [id, document.getElementById(id)]));
 
 const state = {
   midiName: "",
@@ -398,9 +398,18 @@ function renderAll() {
   els["export-pdf"].disabled = !enforceableNotes.length;
   els["print-strip"].disabled = !enforceableNotes.length;
   els["clear-roll"].disabled = !state.notes.length;
+  els["unload-roll"].disabled = !loaded;
   saveProject();
   renderScale();
-  if (!loaded) return;
+  if (!loaded) {
+    els["song-title"].textContent = "No MIDI loaded";
+    els["song-details"].textContent = "Choose a MIDI file to explore its mapped notes";
+    els["note-count"].textContent = "0 notes";
+    els["zoom-value"].textContent = `${state.barsVisible} bars`;
+    els.lanes.replaceChildren();
+    els.ruler.replaceChildren();
+    return;
+  }
 
   const pitches = [...state.scale].sort((a, b) => b - a);
   const rowByPitch = new Map();
@@ -960,6 +969,23 @@ function updateMeterAndBpm(parsed) {
   els.bpm.value = String(state.bpm);
 }
 
+function unloadRoll() {
+  stopPlayback(true);
+  state.importRevision++;
+  state.midiName = "";
+  state.notes = [];
+  state.drag = null;
+  state.cursorDrag = null;
+  state.barsVisible = 2;
+  els["midi-file"].value = "";
+  els["roll-scroll"].scrollLeft = 0;
+  els["roll-scroll"].scrollTop = 0;
+  if (!ProjectCache.clear()) toast("Could not clear the saved roll in this browser");
+  mapNotes();
+  renderAll();
+  setStatus("Ready for a MIDI file");
+}
+
 function resetRoll(newSong = false) {
   stopPlayback(true);
   state.importRevision++;
@@ -1024,6 +1050,7 @@ els["midi-file"].addEventListener("change", event => {
 });
 els["new-roll"].addEventListener("click", () => resetRoll(true));
 els["clear-roll"].addEventListener("click", () => resetRoll());
+els["unload-roll"].addEventListener("click", unloadRoll);
 
 let fileDragDepth = 0;
 function isFileDrag(event) {

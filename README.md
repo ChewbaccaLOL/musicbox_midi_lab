@@ -22,7 +22,7 @@ Explore, adapt, and edit MIDI for a music-box instrument. The browser app maps n
 
 **Runs locally in your browser. No build step or JavaScript dependencies.** MIDI files are read on your device and are not uploaded.
 
-Your current roll, edits, BPM, instrument range, sound selection, and export settings are saved in this browser and restored on reload. Uploaded audio samples are also cached locally when browser storage is available. Clear and New replace the saved roll, so cleared notes do not return after a reload.
+Your current roll, edits, BPM, instrument range, sound selection, and export settings are saved in this browser and restored on reload. Uploaded audio samples are also cached locally when browser storage is available. Clear and New replace the saved roll, so cleared notes do not return after a reload. **Unload MIDI** removes the saved roll and returns to the initial import screen.
 
 ## Quick start
 

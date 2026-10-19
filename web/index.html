@@ -35,6 +35,7 @@
         <input id="midi-file" type="file" accept=".mid,.midi,audio/midi,audio/x-midi">
         <button id="new-roll" class="button workspace-button" title="Start a new roll with four empty bars">Create empty MIDI</button>
         <button id="clear-roll" class="button workspace-button" title="Remove all notes and keep the current instrument and tempo" disabled>Clear workspace</button>
+        <button id="unload-roll" class="button workspace-button" title="Remove the saved roll and return to the import screen" disabled>Unload MIDI</button>
       </div>
       <label class="tempo-control"><span>BPM</span><input id="bpm" type="number" min="20" max="300" value="120" disabled aria-label="Tempo in BPM"></label>
       <div class="song-meta"><strong id="song-title">No MIDI loaded</strong><span id="song-details">Choose a MIDI file to explore its mapped notes</span></div>
