@@ -147,8 +147,9 @@ select:focus-visible { outline: 2px solid #8cc5a6; outline-offset: 1px; }
 .note { position: absolute; z-index: 3; top: 1px; height: calc(100% - 2px); min-width: 1px; border-radius: 4px; background: #398367; box-shadow: inset 0 -2px #245f4c; cursor: grab; touch-action: none; }
 .note { transition: filter 100ms ease, box-shadow 100ms ease, opacity 100ms ease, transform 100ms ease, background-color 120ms ease, border-color 120ms ease; }
 .note:active { cursor: grabbing; }
-.note.dragging { z-index: 12; opacity: .88; transition: none; filter: brightness(1.12); box-shadow: 0 3px 9px #142a2340; }
-.note-arrive { animation: note-arrive 150ms ease-out both; }
+.note.dragging { z-index: 12; opacity: .88; animation: none; transition: none; filter: brightness(1.12); box-shadow: 0 3px 9px #142a2340; }
+/* Release transform after arrival so subsequent drags can move the note. */
+.note-arrive { animation: note-arrive 150ms ease-out backwards; }
 .note-remove { opacity: 0; transform: scale(.45); transition: opacity 100ms ease, transform 100ms ease; pointer-events: none; }
 @keyframes note-arrive { from { opacity: .2; transform: scale(.55); } to { opacity: 1; transform: scale(1); } }
 .note.folded { background: var(--coral); box-shadow: inset 0 -2px #bd6854; }
