@@ -152,7 +152,8 @@ function foldNote(note, scale) {
 
 function mapNotes() {
   const seen = new Set();
-  let previousPlayablePitch = null;
+  const lastTickByPitch = new Map();
+  const gridStep = state.ticksPerBeat / 4;
   for (const note of state.notes) {
     const mapping = foldNote(note.originalNote, state.scale);
     note.mappedNote = mapping.note;
@@ -168,8 +169,11 @@ function mapNotes() {
   state.notes.sort((a, b) => a.tick - b.tick || a.originalNote - b.originalNote);
   for (const note of state.notes) {
     if (note.mappedNote === null || note.duplicate) continue;
-    note.repeated = note.mappedNote === previousPlayablePitch;
-    previousPlayablePitch = note.mappedNote;
+    const previousTick = lastTickByPitch.get(note.mappedNote);
+    // Each tine needs an empty grid slot between strikes, even in chords
+    // and across bar boundaries. Other pitches do not reset its spacing.
+    note.repeated = previousTick !== undefined && note.tick - previousTick <= gridStep;
+    lastTickByPitch.set(note.mappedNote, note.tick);
   }
   state.totalTicks = state.notes.length
     ? Math.max(...state.notes.map(note => note.tick + note.duration))
@@ -438,7 +442,7 @@ function renderAll() {
     const marker = document.createElement("button");
     marker.type = "button";
     marker.className = `note${note.folded ? " folded" : ""}${note.repeated ? " repeat-warning" : ""}`;
-    marker.title = `${noteName(note.mappedNote)}${note.folded ? ` (from ${noteName(note.originalNote)})` : ""}${note.repeated ? " · repeated tine" : ""} · bar ${Math.floor(note.tick / bTicks) + 1}`;
+    marker.title = `${noteName(note.mappedNote)}${note.folded ? ` (from ${noteName(note.originalNote)})` : ""}${note.repeated ? " · same tine needs an empty 1/16-note slot between strikes" : ""} · bar ${Math.floor(note.tick / bTicks) + 1}`;
     marker.style.left = `${43 + note.tick / gridStep * slotWidth}px`;
     marker.style.width = `${Math.max(1, slotWidth - 2)}px`;
     marker.style.top = "1px";
