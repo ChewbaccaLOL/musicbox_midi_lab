@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Generated strip and preview outputs
+actual.pdf
+split_pages.pdf
+*.report.txt
+*_musicbox.mp3
+
+# Local editor state
+.vscode/
+.idea/

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Music Box MIDI Lab</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Music Box MIDI Lab home">
+      <span class="brand-mark" aria-hidden="true">MB</span>
+      <span>Music Box <em>MIDI Lab</em></span>
+    </a>
+    <div class="top-actions">
+      <span class="status"><i></i><span id="status-text">Ready for a MIDI file</span></span>
+      <button class="button button-quiet" id="export-midi" disabled>Export MIDI</button>
+      <label class="pdf-pages-label" for="bars-per-page">Bars / page
+        <input id="bars-per-page" type="number" min="1" max="9" step="1" value="2" disabled>
+        <output id="bars-per-page-value">2</output>
+        <input id="single-page" type="checkbox" disabled><span>One page</span>
+      </label>
+      <button class="button button-primary" id="export-pdf" disabled><span aria-hidden="true">↓</span> Print / PDF</button>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <section class="toolbar" aria-label="MIDI controls">
+      <label class="file-button" for="midi-file"><span aria-hidden="true">＋</span> Open MIDI</label>
+      <input id="midi-file" type="file" accept=".mid,.midi,audio/midi,audio/x-midi">
+      <label class="tempo-control"><span>BPM</span><input id="bpm" type="number" min="20" max="300" value="120" disabled aria-label="Tempo in BPM"></label>
+      <div class="song-meta"><strong id="song-title">No MIDI loaded</strong><span id="song-details">Choose a MIDI file to explore its mapped notes</span></div>
+      <div class="zoom-control"><span>VIEW</span><button id="zoom-out" class="icon-button" aria-label="Zoom out" disabled>−</button><strong id="zoom-value">2 bars</strong><button id="zoom-in" class="icon-button" aria-label="Zoom in" disabled>＋</button></div>
+    </section>
+
+    <div class="content-grid">
+      <aside class="inspector">
+        <section class="panel-section import-section">
+          <div class="section-heading"><span class="section-index">01</span><h2>Instrument range</h2></div>
+          <label class="field-label" for="preset">Scale preset</label>
+          <select id="preset" disabled>
+            <option value="photo">Photo · 30-note music box</option>
+            <option value="chromatic15">Chromatic · 15 notes</option>
+            <option value="chromatic20">Chromatic · 20 notes</option>
+            <option value="chromatic30">Chromatic · 30 notes</option>
+            <option value="adapt15">Adapt 15-note range to MIDI</option>
+            <option value="adapt20">Adapt 20-note range to MIDI</option>
+            <option value="adapt30">Adapt 30-note range to MIDI</option>
+            <option value="range">Custom chromatic range</option>
+          </select>
+          <div id="range-controls" class="range-controls" hidden>
+            <label>Low note<input id="range-low" type="number" min="0" max="127" value="48"></label>
+            <label>High note<input id="range-high" type="number" min="0" max="127" value="77"></label>
+          </div>
+          <div class="field-label scale-heading">Active notes <span id="scale-count">30 lanes</span></div>
+          <div class="scale-list" id="scale-list" aria-label="Editable active note lanes"></div>
+          <div class="panel-note">Toggle notes to change the instrument range. Out-of-range notes fold to the nearest matching pitch.</div>
+        </section>
+
+        <section class="panel-section sound-section">
+          <div class="section-heading"><span class="section-index">02</span><h2>Sound</h2></div>
+          <label class="field-label" for="voice">Instrument voice</label>
+          <select id="voice" disabled>
+            <option value="tine">Warm tine</option>
+            <option value="box">Music box</option>
+            <option value="soft">Soft sine</option>
+            <option value="sample">Use audio sample…</option>
+          </select>
+          <label class="sample-button" id="sample-label" hidden>Choose sample<input id="sample-file" type="file" accept="audio/*"></label>
+          <label class="sample-root" id="sample-root-control" hidden>Sample root (MIDI)<input id="sample-root" type="number" min="0" max="127" value="60"></label>
+          <div class="sound-caption" id="sound-caption">Three tuned partials · short natural decay</div>
+        </section>
+
+        <section class="panel-section edit-section">
+          <div class="section-heading"><span class="section-index">03</span><h2>Note editor</h2></div>
+          <p class="panel-note">Click an empty slot to add a note. Click a note to remove it, or drag it to another slot. Stripes flag an immediate repeat on the same tine.</p>
+            <label class="repeat-toggle"><input id="enforce-repeats" type="checkbox" checked><span>Enforce repeated-tine rule in playback and exports</span></label>
+          <div class="legend"><span><i class="legend-dot exact"></i>In range</span><span><i class="legend-dot folded"></i>Folded</span><span><i class="legend-dot illegal"></i>Repeated tine</span></div>
+        </section>
+      </aside>
+
+      <section class="editor-area" aria-label="MIDI note editor">
+        <div class="editor-heading">
+          <div><p class="eyebrow">PIANO ROLL / MAPPED LANES</p><h1 id="editor-heading">Your music, in the instrument's range</h1></div>
+          <div class="editor-tools"><span id="note-count">0 notes</span><button id="fit-song" class="text-button" disabled>Fit song</button></div>
+        </div>
+        <div class="roll-frame" id="roll-frame">
+          <div class="empty-state" id="empty-state">
+            <div class="empty-glyph" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+            <h2>Bring in a melody</h2>
+            <p>Open a MIDI file to see every note mapped to your music-box range.</p>
+            <label class="file-button" for="midi-file">Choose MIDI file</label>
+          </div>
+          <div class="roll-scroll" id="roll-scroll" hidden>
+            <div class="roll-content" id="roll-content">
+              <div class="ruler" id="ruler"></div>
+              <div class="lanes" id="lanes"></div>
+              <div class="playhead" id="playhead"><span></span></div>
+            </div>
+          </div>
+        </div>
+        <div class="playback-controls" aria-label="Playback controls">
+          <div class="playback-context"><span id="mapping-summary">MIDI-adapted 30 mapping · octave fold</span><span class="control-hint">Drag playhead to seek · <kbd>SPACE</kbd> play / pause</span></div>
+          <div class="transport-buttons">
+            <button class="icon-button" id="stop" title="Stop" aria-label="Stop" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/></svg></button>
+            <button class="play-button" id="play" title="Play" aria-label="Play" disabled><svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5 18 12 8 19z"/></svg><svg class="pause-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="5.5" width="4" height="13" rx="1.3"/><rect x="13" y="5.5" width="4" height="13" rx="1.3"/></svg></button>
+            <button class="icon-button" id="rewind" title="Return to start" aria-label="Return to start" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 5v14M18 6l-9 6 9 6"/></svg></button>
+          </div>
+          <label class="volume-control" for="volume"><span>VOL</span><input id="volume" type="range" min="0" max="100" value="70"><output id="volume-value">70%</output></label>
+        </div>
+      </section>
+    </div>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="app.js" defer></script>
+</body>
+</html>

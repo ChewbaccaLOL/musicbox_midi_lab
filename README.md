@@ -74,10 +74,27 @@ draggable playhead and synthesized or user-supplied sample voice. Scroll over
 the BPM or bars-per-page number fields to adjust them; use the volume slider
 beside the transport to set playback level. Click empty
 space to add a note, click a note to remove it, or drag it to move it. Striped
-notes flag an immediate repeat on the same mapped tine; truly unmappable notes
-remain in a separate subdued `OUT` lane. **Print / PDF** opens the browser
+notes flag an immediate repeat on the same mapped tine. The Note editor's
+enforcement checkbox optionally omits repeated-tine notes from playback and
+MIDI/PDF exports; truly unmappable notes remain in a separate subdued `OUT`
+lane. **Print / PDF** opens the browser
 print dialog; choose 1–9 bars per landscape page or fit the whole song on one
 page.
+
+### Publish the MIDI Lab
+
+The browser app is static and can be hosted on GitHub Pages without a build
+step. The workflow in `.github/workflows/deploy-pages.yml` publishes only the
+`web/` directory when changes are pushed to `main`.
+
+For the first deployment, push the project to its GitHub repository, then open
+**Settings → Pages** and choose **GitHub Actions** as the build and deployment
+source. Subsequent pushes to `main` deploy automatically. The app has no
+server-side MIDI storage: files are read locally in the browser.
+
+The repository `.gitignore` excludes Python caches, local virtual environments,
+generated reports, and the named test PDFs while keeping configs and the sample
+reference PDF available to commit.
 
 ## Default photographed 30-note scale
 
