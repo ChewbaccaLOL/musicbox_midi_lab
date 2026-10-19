@@ -35,7 +35,7 @@ Open [localhost:8765](http://localhost:8765), then:
 1. **Load** a `.mid` or `.midi` file.
 2. **Map** it to your instrument’s range and adjust notes in the piano roll.
 3. **Listen** to the arrangement and check repeated-tine warnings.
-4. **Export** MIDI or use **Print / PDF** to create a punch strip.
+4. **Export** MIDI, use **Download PDF** to save a strip directly, or choose **Print** to open the printer dialog.
 
 > **Printing a physical strip?** Use **100% / Actual size** and verify your instrument’s lane spacing before punching.
 
@@ -46,8 +46,8 @@ Open [localhost:8765](http://localhost:8765), then:
 | 🎼 **Map** | Choose the photographed 30-note strip, chromatic 15/20/30-note presets, a MIDI-adapted range, or a custom range. |
 | ✏️ **Edit** | Click to add or remove notes; drag to change timing and pitch. Notes snap to 1/16-note slots. |
 | 🔊 **Listen** | Set BPM, seek with the playhead, choose a built-in voice or load an audio sample, and adjust volume. |
-| 🔎 **Check** | See immediate repeats on the same mapped tine. Repeat enforcement is on by default and can omit these notes from playback and exports. |
-| 📄 **Export** | Download mapped MIDI, or print a PDF with 1–9 bars per landscape page or the whole song on one page. |
+| 🔎 **Check** | Stripes flag strikes on the same mapped tine less than two 1/16-note slots apart, including across bars and within chords. Leave at least one empty slot between strikes. Repeat enforcement is on by default and omits flagged notes from playback and exports. |
+| 📄 **Export** | Download mapped MIDI or a vector PDF with 1–9 bars per landscape page or the whole song on one page. A separate Print button uses the same layout. PDF downloads have no browser-added dates or URLs; when printing, disable “Headers and footers” in the browser dialog to hide those. |
 
 ## Publish on GitHub Pages
 

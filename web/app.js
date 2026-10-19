@@ -1,7 +1,7 @@
 const PHOTO_NOTES = [48, 50, 55, 57, 59, 60, 62, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 86, 88];
 const PHOTO_LABELS = ["C", "D", "G", "A", "B", "C1", "D1", "E1", "F1", "F#1", "G1", "G#1", "A1", "A#1", "B1", "C2", "C#2", "D2", "D#2", "E2", "F2", "F#2", "G2", "G#2", "A2", "A#2", "B2", "C3", "D3", "E3"];
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-const els = Object.fromEntries(["midi-file", "sample-file", "sample-label", "sample-root", "sample-root-control", "bars-per-page", "bars-per-page-value", "single-page", "volume", "volume-value", "enforce-repeats", "preset", "range-controls", "range-low", "range-high", "scale-list", "scale-count", "voice", "sound-caption", "play", "stop", "rewind", "bpm", "song-title", "song-details", "status-text", "export-midi", "export-pdf", "zoom-out", "zoom-in", "zoom-value", "fit-song", "note-count", "mapping-summary", "roll-frame", "roll-scroll", "roll-content", "ruler", "lanes", "playhead", "empty-state", "toast"].map(id => [id, document.getElementById(id)]));
+const els = Object.fromEntries(["midi-file", "sample-file", "sample-label", "sample-root", "sample-root-control", "bars-per-page", "bars-per-page-value", "single-page", "volume", "volume-value", "enforce-repeats", "preset", "range-controls", "range-low", "range-high", "scale-list", "scale-count", "voice", "sound-caption", "play", "stop", "rewind", "bpm", "song-title", "song-details", "status-text", "export-midi", "export-pdf", "print-strip", "zoom-out", "zoom-in", "zoom-value", "fit-song", "note-count", "mapping-summary", "roll-frame", "roll-scroll", "roll-content", "ruler", "lanes", "playhead", "empty-state", "toast"].map(id => [id, document.getElementById(id)]));
 
 const state = {
   midiName: "",
@@ -304,6 +304,7 @@ window.addEventListener("pointerup", event => {
 
 function renderAll() {
   const loaded = Boolean(state.midiName);
+  els["roll-frame"].classList.toggle("has-midi", loaded);
   const playableNotes = state.notes.filter(note => note.mappedNote !== null && !note.duplicate);
   const enforceableNotes = playableNotes.filter(note => !els["enforce-repeats"].checked || !note.repeated);
   els["empty-state"].hidden = loaded;
@@ -316,6 +317,7 @@ function renderAll() {
   els.play.disabled = !enforceableNotes.length;
   els["export-midi"].disabled = !enforceableNotes.length;
   els["export-pdf"].disabled = !enforceableNotes.length;
+  els["print-strip"].disabled = !enforceableNotes.length;
   renderScale();
   if (!loaded) return;
 
@@ -460,7 +462,7 @@ function renderAll() {
     noteRow.append(marker);
   }
 
-  els.playhead.style.height = `${pitches.length * 19}px`;
+  els.playhead.style.height = `${els.lanes.offsetHeight}px`;
   els["note-count"].textContent = `${playableNotes.length} / ${state.notes.length} notes · ${state.scale.length} lanes`;
   els["song-title"].textContent = state.midiName;
   els["song-details"].textContent = formatDuration(state.totalTicks);
@@ -764,92 +766,45 @@ function download(blob, name) {
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }
 
-function createPrintPages() {
-  const pages = document.createElement("div");
-  pages.className = "print-pages";
-  const bTicks = barTicks();
-  const totalBars = Math.max(1, Math.ceil(state.totalTicks / bTicks));
-  const selectedBars = Number(els["bars-per-page"].value);
-  const barsPerPage = els["single-page"].checked ? totalBars : selectedBars;
-  const pageCount = Math.ceil(totalBars / barsPerPage);
-  const labels = [...state.scale].sort((a, b) => a - b);
-  const hasIllegalNotes = state.notes.some(note => note.repeated)
-    && !els["enforce-repeats"].checked;
-  const printLabels = hasIllegalNotes ? [...labels, null] : labels;
-  for (let pageIndex = 0; pageIndex < pageCount; pageIndex++) {
-    const firstBar = pageIndex * barsPerPage;
-    const barsOnPage = Math.min(barsPerPage, totalBars - firstBar);
-    const page = document.createElement("section");
-    page.className = "print-page";
-    const header = document.createElement("div");
-    header.className = "print-header";
-    header.textContent = `Bars ${firstBar + 1}–${firstBar + barsOnPage}`;
-    page.append(header);
-    const labelRow = document.createElement("div");
-    labelRow.className = "print-labels";
-    labelRow.style.setProperty("--lane-count", printLabels.length);
-    for (const pitch of printLabels) {
-      const label = document.createElement("span");
-      label.textContent = pitch === null ? "REP" : pitchLabel(pitch);
-      labelRow.append(label);
-    }
-    page.append(labelRow);
-    const grid = document.createElement("div");
-    grid.className = "print-grid";
-    for (let lane = 0; lane < printLabels.length; lane++) {
-      const line = document.createElement("i");
-      line.className = "print-lane";
-      line.style.left = `${(lane / printLabels.length) * 100}%`;
-      grid.append(line);
-    }
-    for (let bar = 0; bar <= barsOnPage; bar++) {
-      const line = document.createElement("i");
-      line.className = "print-bar";
-      line.style.top = `${bar / barsOnPage * 100}%`;
-      grid.append(line);
-    }
-    const beatCount = barsOnPage * state.meter.numerator;
-    for (let beat = 1; beat < beatCount; beat++) {
-      if (beat % state.meter.numerator === 0) continue;
-      const line = document.createElement("i");
-      line.className = "print-beat";
-      line.style.top = `${beat / beatCount * 100}%`;
-      grid.append(line);
-    }
-    const startTick = firstBar * bTicks;
-    const endTick = startTick + barsOnPage * bTicks;
-    for (const note of state.notes) {
-      if (note.duplicate || note.mappedNote === null
-        || (els["enforce-repeats"].checked && note.repeated)
-        || note.tick < startTick || note.tick >= endTick) continue;
-      const dot = document.createElement("i");
-      dot.className = `print-note${note.repeated ? " illegal" : note.folded ? " folded" : ""}`;
-      const lane = note.repeated ? printLabels.length - 1 : labels.indexOf(note.mappedNote);
-      dot.style.left = `${((lane + 0.5) / printLabels.length) * 100}%`;
-      dot.style.top = `${((note.tick - startTick) / (endTick - startTick)) * 100}%`;
-      grid.append(dot);
-    }
-    page.append(grid);
-    pages.append(page);
-  }
-  return pages;
+function stripPages() {
+  return StripExport.createPages({
+    notes: state.notes, scale: state.scale, ticksPerBeat: state.ticksPerBeat,
+    meter: state.meter, totalTicks: state.totalTicks, bpm: state.bpm,
+    enforceRepeats: els["enforce-repeats"].checked,
+    singlePage: els["single-page"].checked,
+    barsPerPage: Number(els["bars-per-page"].value), label: pitchLabel,
+  });
 }
 
 function exportPdf() {
   stopPlayback();
-  if (state.printNode) state.printNode.remove();
-  state.printNode = createPrintPages();
-  els["roll-content"].append(state.printNode);
+  download(new Blob([StripExport.toPdf(stripPages())], { type: "application/pdf" }), `${baseName()}_strip.pdf`);
+}
+
+function printStrip() {
+  stopPlayback();
+  if (state.printCleanup) state.printCleanup();
+  const pages = document.createElement("div");
+  pages.className = "print-pages";
+  for (const drawing of stripPages()) {
+    const page = document.createElement("section");
+    page.className = "print-page";
+    page.innerHTML = StripExport.toSvg(drawing);
+    pages.append(page);
+  }
+  state.printNode = pages;
+  document.body.append(pages);
   document.body.classList.add("printing");
   const cleanup = () => {
     document.body.classList.remove("printing");
-    if (state.printNode) state.printNode.remove();
+    pages.remove();
     state.printNode = null;
+    state.printCleanup = null;
     window.removeEventListener("afterprint", cleanup);
   };
+  state.printCleanup = cleanup;
   window.addEventListener("afterprint", cleanup);
   window.print();
-  setTimeout(cleanup, 60000);
 }
 
 function updateMeterAndBpm(parsed) {
@@ -897,6 +852,7 @@ els.stop.addEventListener("click", () => stopPlayback(true));
 els.rewind.addEventListener("click", () => { stopPlayback(true); els["roll-scroll"].scrollLeft = 0; renderAll(); });
 els["export-midi"].addEventListener("click", exportMidi);
 els["export-pdf"].addEventListener("click", exportPdf);
+els["print-strip"].addEventListener("click", printStrip);
 els["bars-per-page"].addEventListener("change", () => {
   let bars = Number(els["bars-per-page"].value);
   bars = Math.max(1, Math.min(9, Math.round(bars || 1)));

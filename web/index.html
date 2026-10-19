@@ -23,7 +23,8 @@
         <output id="bars-per-page-value">2</output>
         <input id="single-page" type="checkbox" disabled><span>One page</span>
       </label>
-      <button class="button button-primary" id="export-pdf" disabled><span aria-hidden="true">↓</span> Print / PDF</button>
+      <button class="button button-quiet" id="print-strip" disabled>Print</button>
+      <button class="button button-primary" id="export-pdf" disabled><span aria-hidden="true">↓</span> Download PDF</button>
     </div>
   </header>
 
@@ -115,6 +116,7 @@
     </div>
   </main>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="strip-export.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>
