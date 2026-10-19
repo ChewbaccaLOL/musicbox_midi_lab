@@ -22,6 +22,8 @@ Explore, adapt, and edit MIDI for a music-box instrument. The browser app maps n
 
 **Runs locally in your browser. No build step or JavaScript dependencies.** MIDI files are read on your device and are not uploaded.
 
+Your current roll, edits, BPM, instrument range, sound selection, and export settings are saved in this browser and restored on reload. Uploaded audio samples are also cached locally when browser storage is available. Clear and New replace the saved roll, so cleared notes do not return after a reload.
+
 ## Quick start
 
 From the `musicbox_strip_tool` directory:
@@ -47,7 +49,7 @@ Open [localhost:8765](http://localhost:8765), then:
 | ✏️ **Edit** | Click to add or remove notes; drag to change timing and pitch. Notes snap to 1/16-note slots. **New 4 bars** starts an empty arrangement; **Clear** removes all notes while keeping the current instrument and tempo. The roll grows by two bars when notes reach its last bar and shrinks in two-bar steps as trailing notes are removed, with a four-bar minimum. |
 | 🔊 **Listen** | Set BPM, seek with the playhead, choose a built-in voice or load an audio sample, and adjust volume. Playback loops at the end of the last occupied bar, excluding the editor's spare bars. |
 | 🔎 **Check** | Stripes flag strikes on the same mapped tine less than two 1/16-note slots apart, including across bars and within chords. Leave at least one empty slot between strikes. Repeat enforcement is on by default and omits flagged notes from playback and exports. |
-| 📄 **Export** | Download mapped MIDI or a vector PDF with 1–9 bars per landscape page or the whole song on one long page at the same bar spacing. A separate Print button uses the same layout. PDF downloads have no browser-added dates or URLs; when printing, disable “Headers and footers” in the browser dialog to hide those. |
+| 📄 **Export** | Download MIDI with the current BPM and an approximate General MIDI instrument, or download WAV from the Sound panel to preserve the actual synthesized voice or uploaded sample. MIDI cannot embed that audio. Vector PDF supports 1–9 bars per landscape page or the whole song on one long page at the same bar spacing. A separate Print button uses the same layout. PDF downloads have no browser-added dates or URLs; when printing, disable “Headers and footers” in the browser dialog to hide those. |
 
 ## Publish on GitHub Pages
 

@@ -17,7 +17,7 @@
     </a>
     <div class="top-actions">
       <span class="status"><i></i><span id="status-text">Ready for a MIDI file</span></span>
-      <button class="button button-quiet" id="export-midi" disabled>Export MIDI</button>
+      <button class="button button-quiet" id="export-midi" title="Save notes and BPM with an approximate MIDI instrument; use WAV for the actual app sound" disabled>Download MIDI</button>
       <label class="pdf-pages-label" for="bars-per-page">Bars / page
         <input id="bars-per-page" type="number" min="1" max="9" step="1" value="2" disabled>
         <output id="bars-per-page-value">2</output>
@@ -73,6 +73,8 @@
           <label class="sample-button" id="sample-label" hidden>Choose sample<input id="sample-file" type="file" accept="audio/*"></label>
           <label class="sample-root" id="sample-root-control" hidden>Sample root (MIDI)<input id="sample-root" type="number" min="0" max="127" value="60"></label>
           <div class="sound-caption" id="sound-caption">Three tuned partials · short natural decay</div>
+          <button class="text-button audio-download" id="export-audio" disabled>Download audio (WAV)</button>
+          <p class="panel-note">WAV preserves the selected sound. MIDI preserves notes and BPM with an approximate instrument.</p>
         </section>
 
         <section class="panel-section edit-section">
@@ -116,6 +118,7 @@
     </div>
   </main>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="project-cache.js" defer></script>
   <script src="strip-export.js" defer></script>
   <script src="app.js" defer></script>
 </body>

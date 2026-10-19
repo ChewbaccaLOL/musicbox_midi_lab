@@ -1,7 +1,7 @@
 const PHOTO_NOTES = [48, 50, 55, 57, 59, 60, 62, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 86, 88];
 const PHOTO_LABELS = ["C", "D", "G", "A", "B", "C1", "D1", "E1", "F1", "F#1", "G1", "G#1", "A1", "A#1", "B1", "C2", "C#2", "D2", "D#2", "E2", "F2", "F#2", "G2", "G#2", "A2", "A#2", "B2", "C3", "D3", "E3"];
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-const els = Object.fromEntries(["midi-file", "sample-file", "sample-label", "sample-root", "sample-root-control", "bars-per-page", "bars-per-page-value", "single-page", "volume", "volume-value", "enforce-repeats", "preset", "range-controls", "range-low", "range-high", "scale-list", "scale-count", "voice", "sound-caption", "play", "stop", "rewind", "bpm", "song-title", "song-details", "status-text", "export-midi", "export-pdf", "print-strip", "zoom-out", "zoom-in", "zoom-value", "fit-song", "clear-roll", "new-roll", "note-count", "mapping-summary", "roll-frame", "roll-scroll", "roll-content", "ruler", "lanes", "playhead", "empty-state", "toast"].map(id => [id, document.getElementById(id)]));
+const els = Object.fromEntries(["midi-file", "sample-file", "sample-label", "sample-root", "sample-root-control", "bars-per-page", "bars-per-page-value", "single-page", "volume", "volume-value", "enforce-repeats", "preset", "range-controls", "range-low", "range-high", "scale-list", "scale-count", "voice", "sound-caption", "play", "stop", "rewind", "bpm", "song-title", "song-details", "status-text", "export-midi", "export-audio", "export-pdf", "print-strip", "zoom-out", "zoom-in", "zoom-value", "fit-song", "clear-roll", "new-roll", "note-count", "mapping-summary", "roll-frame", "roll-scroll", "roll-content", "ruler", "lanes", "playhead", "empty-state", "toast"].map(id => [id, document.getElementById(id)]));
 
 const state = {
   midiName: "",
@@ -21,6 +21,10 @@ const state = {
   keepAliveOscillator: null,
   audioVoices: new Set(),
   sampleBuffer: null,
+  sampleName: "",
+  sampleToken: "",
+  sampleRevision: 0,
+  exportingAudio: false,
   sampleRoot: 60,
   isPlaying: false,
   playbackStartAudio: 0,
@@ -33,6 +37,68 @@ const state = {
   drag: null,
   cursorDrag: null,
 };
+
+function saveProject() {
+  const saved = ProjectCache.save(state, {
+    voice: els.voice.value, volume: Number(els.volume.value),
+    enforceRepeats: els["enforce-repeats"].checked,
+    barsPerPage: Number(els["bars-per-page"].value), singlePage: els["single-page"].checked,
+  });
+  if (!saved && !state.cacheWarningShown) {
+    state.cacheWarningShown = true;
+    toast("Browser storage is unavailable or full; this roll cannot be restored after reload");
+  }
+}
+
+function restoreProject() {
+  const project = ProjectCache.load();
+  if (!project) return;
+  for (const key of ["midiName", "notes", "ticksPerBeat", "meter", "bpm", "scale", "preset", "barsVisible", "sampleRoot", "sampleName", "sampleToken"]) {
+    state[key] = project[key];
+  }
+  els.bpm.value = String(state.bpm);
+  els.preset.value = state.preset;
+  els["range-controls"].hidden = state.preset !== "range";
+  els["range-low"].value = String(Math.min(...state.scale));
+  els["range-high"].value = String(Math.max(...state.scale));
+  els["sample-root"].value = String(state.sampleRoot);
+  els.voice.value = ["tine", "box", "soft", "sample"].includes(project.settings.voice) ? project.settings.voice : "tine";
+  const volume = Number.isFinite(project.settings.volume) ? Math.max(0, Math.min(100, project.settings.volume)) : 70;
+  els.volume.value = String(volume);
+  els["volume-value"].textContent = `${volume}%`;
+  els["enforce-repeats"].checked = project.settings.enforceRepeats !== false;
+  els["bars-per-page"].value = String(Math.max(1, Math.min(9, Math.round(project.settings.barsPerPage) || 2)));
+  els["single-page"].checked = Boolean(project.settings.singlePage);
+  syncVoiceControls();
+  mapNotes();
+  setStatus("Restored saved piano roll");
+  if (state.sampleToken) restoreSample(state.sampleToken);
+}
+
+async function restoreSample(token) {
+  const revision = ++state.sampleRevision;
+  try {
+    const file = await ProjectCache.loadSample(token);
+    if (!file) throw new Error("Sample not cached");
+    const buffer = await ensureAudio().decodeAudioData(await file.arrayBuffer());
+    if (revision !== state.sampleRevision || token !== state.sampleToken) return;
+    state.sampleBuffer = buffer;
+    syncVoiceControls();
+    renderAll();
+  } catch {
+    if (revision !== state.sampleRevision) return;
+    els["sound-caption"].textContent = "Re-select your audio sample to restore its sound";
+  }
+}
+
+function syncVoiceControls() {
+  const sample = els.voice.value === "sample";
+  els["sample-label"].hidden = !sample;
+  els["sample-root-control"].hidden = !sample;
+  els["sound-caption"].textContent = sample
+    ? (state.sampleBuffer ? `${state.sampleName || "User sample"} · pitch follows mapped note` : "Choose an audio file to use as the instrument sample")
+    : ({ tine: "Three tuned partials · short natural decay", box: "Bright inharmonic harmonics · longer decay", soft: "Pure sine tone · gentle decay" })[els.voice.value];
+}
 
 function noteName(note) {
   const pitch = NOTE_NAMES[note % 12];
@@ -325,11 +391,14 @@ function renderAll() {
   }
   els["bars-per-page"].disabled = !loaded || els["single-page"].checked;
   els["bars-per-page-value"].textContent = els["single-page"].checked ? "All bars" : "bars / page";
-  els.play.disabled = !enforceableNotes.length;
+  const sampleUnavailable = els.voice.value === "sample" && !state.sampleBuffer;
+  els.play.disabled = !enforceableNotes.length || sampleUnavailable;
   els["export-midi"].disabled = !enforceableNotes.length;
+  els["export-audio"].disabled = !enforceableNotes.length || state.exportingAudio || sampleUnavailable;
   els["export-pdf"].disabled = !enforceableNotes.length;
   els["print-strip"].disabled = !enforceableNotes.length;
   els["clear-roll"].disabled = !state.notes.length;
+  saveProject();
   renderScale();
   if (!loaded) return;
 
@@ -563,15 +632,14 @@ function ensureAudio() {
   return state.audioContext;
 }
 
-function playVoice(note, velocity, when) {
-  const context = ensureAudio();
+function playVoice(note, velocity, when, context = ensureAudio(), destination = state.masterGain, track = true) {
   const output = context.createGain();
   const voiceRecord = { output, sources: new Set() };
-  state.audioVoices.add(voiceRecord);
+  if (track) state.audioVoices.add(voiceRecord);
   const volume = (velocity / 127) ** 0.7 * 0.16;
   output.gain.setValueAtTime(0.0001, when);
   output.gain.exponentialRampToValueAtTime(Math.max(0.0002, volume), when + 0.008);
-  output.connect(state.masterGain);
+  output.connect(destination);
 
   if (els.voice.value === "sample" && state.sampleBuffer) {
     const source = context.createBufferSource();
@@ -616,6 +684,7 @@ function playVoice(note, velocity, when) {
 }
 
 function play() {
+  if (els.voice.value === "sample" && !state.sampleBuffer) return toast("Choose an audio sample first");
   if (!state.notes.some(note => note.mappedNote !== null && !note.duplicate
     && (!els["enforce-repeats"].checked || !note.repeated))) return;
   if (state.isPlaying) return stopPlayback();
@@ -753,16 +822,19 @@ function writeVar(value) {
 
 function exportMidi() {
   const tempo = Math.round(60000000 / state.bpm);
-  const events = [[0, [0xff, 0x51, 3, (tempo >> 16) & 255, (tempo >> 8) & 255, tempo & 255]]];
+  const program = ({ tine: 108, box: 10, soft: 73, sample: 108 })[els.voice.value] || 108;
+  const events = [[0, [0xc0, program]], [0, [0xff, 0x51, 3, (tempo >> 16) & 255, (tempo >> 8) & 255, tempo & 255]]];
   events.push([0, [0xff, 0x58, 4, state.meter.numerator, Math.round(Math.log2(state.meter.denominator)), 24, 8]]);
   for (const note of state.notes) {
     if (note.mappedNote === null || note.duplicate
       || (els["enforce-repeats"].checked && note.repeated)) continue;
-    const channel = (note.channel || 0) & 0x0f;
+    const channel = 0; // The mapped arrangement uses one pitched instrument, including former drum tracks.
     events.push([note.tick, [0x90 | channel, note.mappedNote, note.velocity || 90]]);
     events.push([note.tick + note.duration, [0x80 | channel, note.mappedNote, 0]]);
   }
-  events.sort((a, b) => a[0] - b[0] || a[1][0] - b[1][0]);
+  const priority = event => event[1][0] >= 0xf0 || (event[1][0] & 0xf0) === 0xc0 ? 0
+    : (event[1][0] & 0xf0) === 0x80 ? 1 : 2;
+  events.sort((a, b) => a[0] - b[0] || priority(a) - priority(b));
   const track = [];
   let previous = 0;
   for (const [tick, bytes] of events) {
@@ -777,6 +849,59 @@ function exportMidi() {
 
 function baseName() {
   return state.midiName.replace(/\.(midi?|MIDI?)$/, "") || "musicbox";
+}
+
+function encodeWav(buffer) {
+  const channels = buffer.numberOfChannels;
+  const samples = buffer.length;
+  const bytes = new Uint8Array(44 + samples * channels * 2);
+  const view = new DataView(bytes.buffer);
+  const text = (offset, value) => [...value].forEach((char, index) => view.setUint8(offset + index, char.charCodeAt(0)));
+  text(0, "RIFF"); view.setUint32(4, bytes.length - 8, true); text(8, "WAVE");
+  text(12, "fmt "); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+  view.setUint16(22, channels, true); view.setUint32(24, buffer.sampleRate, true);
+  view.setUint32(28, buffer.sampleRate * channels * 2, true);
+  view.setUint16(32, channels * 2, true); view.setUint16(34, 16, true);
+  text(36, "data"); view.setUint32(40, bytes.length - 44, true);
+  const data = Array.from({ length: channels }, (_, channel) => buffer.getChannelData(channel));
+  let offset = 44;
+  for (let frame = 0; frame < samples; frame++) {
+    for (let channel = 0; channel < channels; channel++) {
+      const value = Math.max(-1, Math.min(1, data[channel][frame] || 0));
+      view.setInt16(offset, Math.round(value * (value < 0 ? 32768 : 32767)), true);
+      offset += 2;
+    }
+  }
+  return bytes;
+}
+
+async function exportAudio() {
+  if (state.exportingAudio) return;
+  if (els.voice.value === "sample" && !state.sampleBuffer) return toast("Choose an audio sample first");
+  const notes = state.notes.filter(n => n.mappedNote !== null && !n.duplicate
+    && (!els["enforce-repeats"].checked || !n.repeated));
+  if (!notes.length) return;
+  const filename = `${baseName()}_musicbox.wav`;
+  state.exportingAudio = true;
+  els["export-audio"].disabled = true;
+  els["export-audio"].textContent = "Rendering audio…";
+  try {
+    const secondsPerTick = 60 / state.bpm / state.ticksPerBeat;
+    const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    const context = new OfflineContext(2, Math.ceil((state.loopTicks * secondsPerTick + 2.5) * 44100), 44100);
+    const gain = context.createGain();
+    gain.gain.value = Number(els.volume.value) / 100;
+    gain.connect(context.destination);
+    for (const note of notes) playVoice(note.mappedNote, note.velocity, note.tick * secondsPerTick, context, gain, false);
+    const buffer = await context.startRendering();
+    download(new Blob([encodeWav(buffer)], { type: "audio/wav" }), filename);
+  } catch {
+    toast("Could not render audio in this browser");
+  } finally {
+    state.exportingAudio = false;
+    els["export-audio"].textContent = "Download audio (WAV)";
+    renderAll();
+  }
 }
 
 function download(blob, name) {
@@ -941,6 +1066,7 @@ els.play.addEventListener("click", play);
 els.stop.addEventListener("click", () => stopPlayback(true));
 els.rewind.addEventListener("click", () => { stopPlayback(true); els["roll-scroll"].scrollLeft = 0; renderAll(); });
 els["export-midi"].addEventListener("click", exportMidi);
+els["export-audio"].addEventListener("click", exportAudio);
 els["export-pdf"].addEventListener("click", exportPdf);
 els["print-strip"].addEventListener("click", printStrip);
 els["bars-per-page"].addEventListener("change", () => {
@@ -992,28 +1118,46 @@ els.volume.addEventListener("input", () => {
   if (state.masterGain && state.audioContext) {
     state.masterGain.gain.setTargetAtTime(volume / 100, state.audioContext.currentTime, 0.015);
   }
+  saveProject();
 });
 els.voice.addEventListener("change", () => {
-  const sample = els.voice.value === "sample";
-  els["sample-label"].hidden = !sample;
-  els["sample-root-control"].hidden = !sample;
-  els["sound-caption"].textContent = sample ? (state.sampleBuffer ? "User sample loaded · playback-rate pitch shift" : "Choose an audio file to use as the instrument sample") : ({ tine: "Three tuned partials · short natural decay", box: "Bright inharmonic harmonics · longer decay", soft: "Pure sine tone · gentle decay" })[els.voice.value];
+  stopPlayback();
+  syncVoiceControls();
+  renderAll();
 });
 els["sample-file"].addEventListener("change", async event => {
   const file = event.target.files[0];
   if (!file) return;
+  event.target.value = "";
+  const revision = ++state.sampleRevision;
   try {
     const context = ensureAudio();
-    state.sampleBuffer = await context.decodeAudioData(await file.arrayBuffer());
-    els["sound-caption"].textContent = `${file.name} · pitch follows mapped note`;
+    const buffer = await context.decodeAudioData(await file.arrayBuffer());
+    if (revision !== state.sampleRevision) return;
+    stopPlayback();
+    state.sampleBuffer = buffer;
+    state.sampleName = file.name;
+    state.sampleToken = "";
+    syncVoiceControls();
+    renderAll();
     toast("Instrument sample loaded");
+    const token = `${Date.now()}-${revision}-${Math.random()}`;
+    try {
+      await ProjectCache.saveSample(file, token);
+      if (revision !== state.sampleRevision) return;
+      state.sampleToken = token;
+      saveProject();
+    } catch {
+      toast("Sample works now, but could not be saved for reload");
+    }
   } catch {
-    toast("Could not decode that audio file");
+    if (revision === state.sampleRevision) toast("Could not decode that audio file");
   }
 });
 els["sample-root"].addEventListener("change", () => {
   state.sampleRoot = Math.max(0, Math.min(127, Number(els["sample-root"].value) || 60));
   els["sample-root"].value = String(state.sampleRoot);
+  saveProject();
 });
 document.addEventListener("keydown", event => {
   if (event.code !== "Space" || event.target.matches("input, select, button, textarea")) return;
@@ -1021,4 +1165,7 @@ document.addEventListener("keydown", event => {
   if (!els.play.disabled) play();
 });
 window.addEventListener("resize", () => { if (state.notes.length) renderAll(); });
+document.addEventListener("change", saveProject);
+window.addEventListener("pagehide", saveProject);
+restoreProject();
 renderAll();

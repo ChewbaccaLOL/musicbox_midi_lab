@@ -102,6 +102,7 @@ select:focus-visible { outline: 2px solid #8cc5a6; outline-offset: 1px; }
 .panel-note { color: var(--muted); font-size: 10px; line-height: 1.55; margin: 10px 0 0; }
 .sound-caption { margin-top: 8px; color: var(--muted); font-size: 10px; }
 .sample-button { display: block; margin-top: 9px; color: var(--mint-dark); text-decoration: underline; font-size: 10px; cursor: pointer; }
+.audio-download { margin-top: 10px; }
 .sample-root { display: flex; gap: 8px; align-items: center; margin-top: 8px; color: var(--muted); font: 10px "Consolas", monospace; }
 .sample-root input { width: 58px; height: 26px; border: 1px solid var(--line); padding: 0 5px; }
 .mode-switch { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); padding: 3px; background: #f0f4f1; }
@@ -190,6 +191,9 @@ kbd { margin-left: 4px; border: 1px solid #d6dfda; padding: 2px 4px; color: var(
 @media (max-width: 900px) { .topbar { padding: 0 16px; } .app-shell { padding: 14px 16px; } .status { display: none; } .content-grid { grid-template-columns: 210px minmax(0, 1fr); gap: 16px; } .inspector { padding-right: 14px; } .toolbar { grid-template-columns: auto auto minmax(110px, 1fr); gap: 10px; } .song-meta { grid-column: 1 / 3; grid-row: 2; padding: 0; } .zoom-control { grid-column: 3; grid-row: 2; justify-self: end; } }
 @media (max-width: 650px) { html, body { height: auto; min-height: 100%; } body { overflow: auto; } .topbar { height: 58px; padding: 0 12px; } .top-actions .button-quiet, .pdf-pages-label { display: none; } .top-actions { gap: 6px; } .button { padding: 0 9px; } .app-shell { height: auto; min-height: calc(100dvh - 58px); padding: 12px; } .content-grid { flex: none; grid-template-columns: 1fr; } .inspector { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; border: 0; padding: 0; overflow: visible; } .panel-section { border: 1px solid var(--line); border-radius: 9px; padding: 12px; margin: 0; } .edit-section { grid-column: 1 / -1; } .roll-frame { height: 52vh; min-height: 280px; } .editor-area { display: block; } .editor-heading h1 { font-size: 19px; } .toolbar { flex: none; grid-template-columns: auto auto minmax(100px, 1fr); gap: 7px; } .toolbar > .file-button { padding: 0 9px; } .tempo-control { grid-column: 1 / 3; grid-row: 2; margin-left: 0; } .song-meta { grid-column: 1 / 3; grid-row: 3; } .zoom-control { grid-column: 3; grid-row: 2 / 4; justify-self: end; align-self: center; } .playback-controls { min-height: 62px; } .playback-context { display: none; } }
 @media (max-width: 650px) {
+  .top-actions #export-midi { display: inline-flex; }
+  .topbar .brand > span:last-child { display: none; }
+  .top-actions #export-midi, .top-actions #export-pdf { padding: 0 7px; font-size: 10px; }
   .roll-frame.has-midi { height: auto; min-height: 0; }
   .roll-frame.has-midi .roll-scroll { height: auto; max-height: 52vh; }
 }
