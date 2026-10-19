@@ -30,8 +30,12 @@
 
   <main class="app-shell">
     <section class="toolbar" aria-label="MIDI controls">
-      <label class="file-button" for="midi-file"><span aria-hidden="true">＋</span> Open MIDI</label>
-      <input id="midi-file" type="file" accept=".mid,.midi,audio/midi,audio/x-midi">
+      <div class="workspace-actions" role="group" aria-label="Workspace actions">
+        <label class="file-button" for="midi-file"><span aria-hidden="true">＋</span> Open MIDI</label>
+        <input id="midi-file" type="file" accept=".mid,.midi,audio/midi,audio/x-midi">
+        <button id="new-roll" class="button workspace-button" title="Start a new roll with four empty bars">Create empty MIDI</button>
+        <button id="clear-roll" class="button workspace-button" title="Remove all notes and keep the current instrument and tempo" disabled>Clear workspace</button>
+      </div>
       <label class="tempo-control"><span>BPM</span><input id="bpm" type="number" min="20" max="300" value="120" disabled aria-label="Tempo in BPM"></label>
       <div class="song-meta"><strong id="song-title">No MIDI loaded</strong><span id="song-details">Choose a MIDI file to explore its mapped notes</span></div>
       <div class="zoom-control"><span>VIEW</span><button id="zoom-out" class="icon-button" aria-label="Zoom out" disabled>−</button><strong id="zoom-value">2 bars</strong><button id="zoom-in" class="icon-button" aria-label="Zoom in" disabled>＋</button></div>
@@ -88,13 +92,13 @@
       <section class="editor-area" aria-label="MIDI note editor">
         <div class="editor-heading">
           <div><p class="eyebrow">PIANO ROLL / MAPPED LANES</p><h1 id="editor-heading">Your music, in the instrument's range</h1></div>
-          <div class="editor-tools"><span id="note-count">0 notes</span><button id="new-roll" class="text-button">New 4 bars</button><button id="clear-roll" class="text-button" disabled>Clear</button><button id="fit-song" class="text-button" disabled>Fit song</button></div>
+          <div class="editor-tools"><span id="note-count">0 notes</span><button id="fit-song" class="text-button" disabled>Fit song</button></div>
         </div>
         <div class="roll-frame" id="roll-frame">
           <div class="empty-state" id="empty-state">
             <div class="empty-glyph" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
             <h2>Bring in a melody</h2>
-            <p>Drop a MIDI file here or choose a file below. Use New 4 bars to start an empty roll.</p>
+            <p>Drop a MIDI file here or choose a file below. Use Create empty MIDI above to start with four empty bars.</p>
             <label class="file-button" for="midi-file">Choose MIDI file</label>
           </div>
           <div class="roll-scroll" id="roll-scroll" hidden>
