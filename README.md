@@ -4,6 +4,8 @@
 
 **Turn a MIDI melody into a music-box arrangement.**
 
+**[Open the live app](https://chewbaccalol.github.io/musicbox_midi_lab/)**
+
 Map your notes · Edit the piano roll · Hear the result · Print a punch strip
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
