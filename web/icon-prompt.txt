@@ -1,0 +1,3 @@
+Generated using the built-in image generation tool.
+
+Use case: logo-brand. Create a single square favicon for Music Box MIDI Lab. Flat minimal graphic, dark forest teal background #172b2c filling the square, large bold mint #b5e8cc letters "MB" centered in a clean geometric monospace style. A restrained punched music-strip cue: three small square mint holes below the monogram. Prioritize legibility at 32px, strong thick strokes, generous separation. Straight-on graphic only, no mockup, no gradients, shadows, texture, borders, additional text, or surrounding whitespace. Output one square icon.
