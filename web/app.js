@@ -36,6 +36,11 @@ const state = {
   printNode: null,
   drag: null,
   cursorDrag: null,
+  selection: new Set(),
+  noteMarkers: new Map(),
+  clipboard: null,
+  boxDrag: null,
+  suppressClick: false,
 };
 
 function saveProject() {
@@ -220,6 +225,8 @@ function foldNote(note, scale) {
 }
 
 function mapNotes() {
+  const liveNotes = new Set(state.notes);
+  state.selection = new Set([...state.selection].filter(note => liveNotes.has(note)));
   const resumePlayback = state.isPlaying;
   if (resumePlayback) stopPlayback();
   const seen = new Set();
@@ -332,54 +339,213 @@ function tickAtGridX(clientX, pxPerBar, ticksPerBar) {
   return Math.max(0, Math.min(maxTick, Math.floor(rawTick / gridStep) * gridStep));
 }
 
+function refreshSelection() {
+  for (const [note, marker] of state.noteMarkers) {
+    marker.classList.toggle("selected", state.selection.has(note));
+    marker.setAttribute("aria-pressed", String(state.selection.has(note)));
+  }
+}
+
+function clickNote(event, note, marker) {
+  event.stopPropagation();
+  if (event.shiftKey || event.ctrlKey || event.metaKey) return;
+  if (!state.selection.has(note)) removeNote(note, marker);
+}
+
+function deleteSelection() {
+  if (!state.selection.size) return;
+  state.notes = state.notes.filter(note => !state.selection.has(note));
+  state.selection.clear();
+  mapNotes();
+  renderAll();
+}
+
+function copySelection() {
+  const notes = state.notes.filter(note => state.selection.has(note));
+  if (!notes.length) return false;
+  const firstTick = Math.min(...notes.map(note => note.tick));
+  state.clipboard = { ticksPerBeat: state.ticksPerBeat, notes: notes.map(note => ({
+    tick: note.tick - firstTick, originalNote: note.originalNote,
+    duration: note.duration, velocity: note.velocity, channel: note.channel, trackIndex: note.trackIndex,
+  })) };
+  return true;
+}
+
+function pasteSelection() {
+  if (!state.clipboard) return;
+  const step = state.ticksPerBeat / 4;
+  const position = state.playbackStartTick / step;
+  const slot = Math.floor(position);
+  const tick = (slot + (position - slot > 0.5 ? 1 : 0)) * step;
+  const ratio = state.ticksPerBeat / state.clipboard.ticksPerBeat;
+  const notes = state.clipboard.notes.map(note => ({ ...note,
+    tick: tick + Math.round(note.tick * ratio), duration: Math.max(1, Math.round(note.duration * ratio)),
+    note: note.originalNote, justAdded: true,
+  }));
+  state.notes.push(...notes);
+  state.selection = new Set(notes);
+  mapNotes();
+  renderAll();
+}
+
+// Clamp one shared offset to preserve the group's rhythm and spacing at edges.
+function moveNotes(notes, tickDelta, laneDelta) {
+  if (!notes.length) return;
+  const pitches = [...state.scale].sort((a, b) => a - b);
+  tickDelta = Math.max(-Math.min(...notes.map(note => note.tick)), tickDelta);
+  const indices = notes.map(note => pitches.indexOf(note.mappedNote));
+  const mapped = indices.filter(index => index >= 0);
+  if (mapped.length) laneDelta = Math.max(-Math.min(...mapped), Math.min(pitches.length - 1 - Math.max(...mapped), laneDelta));
+  notes.forEach((note, index) => {
+    note.tick += tickDelta;
+    if (laneDelta && indices[index] >= 0) note.originalNote = pitches[indices[index] + laneDelta];
+    note.justMoved = true;
+  });
+}
+
+function suppressPointerClick() {
+  state.suppressClick = true;
+  setTimeout(() => { state.suppressClick = false; }, 0);
+}
+
+document.addEventListener("click", event => {
+  if (!state.suppressClick) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+}, true);
+
 function startNoteDrag(event, note, pxPerBar, ticksPerBar, marker) {
-  if (event.button !== 0) return;
+  if (event.button !== 0 || state.boxDrag) return;
+  event.stopPropagation();
+  if (event.ctrlKey || event.metaKey) state.selection.delete(note);
+  else if (event.shiftKey) state.selection.add(note);
+  refreshSelection();
+  if (event.ctrlKey || event.metaKey) return;
   marker.setPointerCapture(event.pointerId);
   state.drag = {
     note,
     marker,
+    notes: state.selection.has(note) ? [...state.selection] : [note],
     pointerId: event.pointerId,
     startX: event.clientX,
     startY: event.clientY,
+    startScroll: els["roll-scroll"].scrollLeft,
+    startScrollTop: els["roll-scroll"].scrollTop,
     pxPerBar,
     ticksPerBar,
     moved: false,
   };
 }
 
+function dragOffset(drag, event) {
+  const step = state.ticksPerBeat / 4;
+  const dx = event.clientX - drag.startX + els["roll-scroll"].scrollLeft - drag.startScroll;
+  const dy = event.clientY - drag.startY + els["roll-scroll"].scrollTop - drag.startScrollTop;
+  const rowHeight = drag.marker.parentElement.getBoundingClientRect().height;
+  return { tick: Math.round(dx / drag.pxPerBar * drag.ticksPerBar / step) * step,
+    lane: -Math.round(dy / rowHeight), dx, dy };
+}
+
+function boxPoint(event) {
+  const rect = els.lanes.getBoundingClientRect();
+  return { x: Math.max(42, event.clientX - rect.left), y: Math.max(0, event.clientY - rect.top) };
+}
+
+els.lanes.addEventListener("pointerdown", event => {
+  if (event.button !== 0 || !state.midiName || event.target.closest(".note, .lane-label")) return;
+  if (event.clientX < els["roll-scroll"].getBoundingClientRect().left + 42) return;
+  const box = document.createElement("div");
+  box.className = "selection-box";
+  els.lanes.append(box);
+  state.boxDrag = { start: boxPoint(event), startX: event.clientX, startY: event.clientY,
+    pointerId: event.pointerId, box, initial: new Set(state.selection),
+    subtract: event.ctrlKey || event.metaKey, add: event.shiftKey, moved: false };
+});
+
 window.addEventListener("pointermove", event => {
+  const box = state.boxDrag;
+  if (box && event.pointerId === box.pointerId) {
+    if (Math.abs(event.clientX - box.startX) + Math.abs(event.clientY - box.startY) > 4) box.moved = true;
+    if (!box.moved) return;
+    els.lanes.setPointerCapture(event.pointerId);
+    const end = boxPoint(event);
+    const left = Math.min(box.start.x, end.x), top = Math.min(box.start.y, end.y);
+    const right = Math.max(box.start.x, end.x), bottom = Math.max(box.start.y, end.y);
+    Object.assign(box.box.style, { left: `${left}px`, top: `${top}px`, width: `${right-left}px`, height: `${bottom-top}px` });
+    state.selection = box.add || box.subtract ? new Set(box.initial) : new Set();
+    const origin = els.lanes.getBoundingClientRect();
+    for (const [note, marker] of state.noteMarkers) {
+      const rect = marker.getBoundingClientRect();
+      if (rect.right - origin.left > left && rect.left - origin.left < right
+        && rect.bottom - origin.top > top && rect.top - origin.top < bottom) {
+        if (box.subtract) state.selection.delete(note);
+        else state.selection.add(note);
+      }
+    }
+    refreshSelection();
+    return;
+  }
   if (!state.drag) return;
+  if (event.pointerId !== state.drag.pointerId) return;
   if (Math.abs(event.clientX - state.drag.startX) + Math.abs(event.clientY - state.drag.startY) > 4) {
     state.drag.moved = true;
   }
   if (state.drag.moved) {
-    state.drag.marker.classList.add("dragging");
-    state.drag.marker.style.transform = `translate(${event.clientX - state.drag.startX}px, ${event.clientY - state.drag.startY}px)`;
+    if (!state.selection.has(state.drag.note)) {
+      state.selection = new Set(state.drag.notes);
+      refreshSelection();
+    }
+    const { dx, dy } = dragOffset(state.drag, event);
+    for (const note of state.drag.notes) {
+      const marker = state.noteMarkers.get(note);
+      if (!marker) continue;
+      marker.classList.add("dragging");
+      marker.style.transform = `translate(${dx}px, ${dy}px)`;
+    }
   }
 });
 
-window.addEventListener("pointerup", event => {
+function finishEditorDrag(event, cancelled = false) {
+  const box = state.boxDrag;
+  if (box && event.pointerId === box.pointerId) {
+    state.boxDrag = null;
+    box.box.remove();
+    if (cancelled) state.selection = box.initial;
+    else if (!box.moved && !box.add && !box.subtract) state.selection.clear();
+    if (box.moved || cancelled) suppressPointerClick();
+    try { els.lanes.releasePointerCapture(box.pointerId); } catch {}
+    refreshSelection();
+  }
   const drag = state.drag;
-  if (!drag) return;
+  if (!drag || event.pointerId !== drag.pointerId) return;
   state.drag = null;
-  if (!drag.moved) return;
-
-  drag.note.tick = tickAtGridX(event.clientX, drag.pxPerBar, drag.ticksPerBar);
-  const laneRows = [...els.lanes.querySelectorAll(".lane-row[data-pitch]")];
-  const targetRow = laneRows.find(row => {
-    const bounds = row.getBoundingClientRect();
-    return event.clientY >= bounds.top && event.clientY < bounds.bottom;
-  });
-  if (targetRow) drag.note.originalNote = Number(targetRow.dataset.pitch);
-  drag.note.justMoved = true;
-  drag.marker.classList.remove("dragging");
-  drag.marker.style.transform = "";
   try { drag.marker.releasePointerCapture(drag.pointerId); } catch {}
-  mapNotes();
-  renderAll();
-});
+  for (const note of drag.notes) {
+    const marker = state.noteMarkers.get(note);
+    if (marker) { marker.classList.remove("dragging"); marker.style.transform = ""; }
+  }
+  if (!drag.moved) return;
+  suppressPointerClick();
+  if (!cancelled) {
+    const offset = dragOffset(drag, event);
+    // An OUT note can be repaired by dropping it onto an active lane.
+    if (drag.notes.length === 1 && drag.note.mappedNote === null) {
+      const row = [...els.lanes.querySelectorAll(".lane-row[data-pitch]")].find(row => {
+        const rect = row.getBoundingClientRect();
+        return event.clientY >= rect.top && event.clientY < rect.bottom;
+      });
+      if (row) drag.note.originalNote = Number(row.dataset.pitch);
+    }
+    moveNotes(drag.notes, offset.tick, offset.lane);
+    mapNotes();
+    renderAll();
+  }
+}
+window.addEventListener("pointerup", event => finishEditorDrag(event));
+window.addEventListener("pointercancel", event => finishEditorDrag(event, true));
 
 function renderAll() {
+  state.noteMarkers.clear();
   const loaded = Boolean(state.midiName);
   els["roll-frame"].classList.toggle("has-midi", loaded);
   const playableNotes = state.notes.filter(note => note.mappedNote !== null && !note.duplicate);
@@ -468,7 +634,7 @@ function renderAll() {
       row.append(line);
     }
     row.addEventListener("click", event => {
-      if (event.target.closest(".note, .lane-label")) return;
+      if (event.target.closest(".note, .lane-label") || event.shiftKey || event.ctrlKey || event.metaKey) return;
       const viewport = els["roll-scroll"].getBoundingClientRect();
       if (event.clientX < viewport.left + 42) return;
       const tick = tickAtGridX(event.clientX, pxPerBar, bTicks);
@@ -496,7 +662,7 @@ function renderAll() {
       illegalRow.append(line);
     }
     illegalRow.addEventListener("click", event => {
-      if (event.target.closest(".note, .lane-label")) return;
+      if (event.target.closest(".note, .lane-label") || event.shiftKey || event.ctrlKey || event.metaKey) return;
       const viewport = els["roll-scroll"].getBoundingClientRect();
       if (event.clientX < viewport.left + 42) return;
       const tick = tickAtGridX(event.clientX, pxPerBar, bTicks);
@@ -517,8 +683,9 @@ function renderAll() {
       marker.style.height = "calc(100% - 2px)";
       marker.addEventListener("click", event => {
         event.stopPropagation();
-        removeNote(note, marker);
+        clickNote(event, note, marker);
       });
+      state.noteMarkers.set(note, marker);
       marker.addEventListener("pointerdown", event => startNoteDrag(event, note, pxPerBar, bTicks, marker));
       if (note.justAdded || note.justMoved) {
         marker.classList.add("note-arrive");
@@ -543,8 +710,9 @@ function renderAll() {
     marker.style.height = "calc(100% - 2px)";
     marker.addEventListener("click", event => {
       event.stopPropagation();
-      removeNote(note, marker);
+      clickNote(event, note, marker);
     });
+    state.noteMarkers.set(note, marker);
     marker.addEventListener("pointerdown", event => startNoteDrag(event, note, pxPerBar, bTicks, marker));
     if (note.justAdded || note.justMoved) {
       marker.classList.add("note-arrive");
@@ -554,6 +722,7 @@ function renderAll() {
     noteRow.append(marker);
   }
 
+  refreshSelection();
   els.playhead.style.height = `${els.lanes.offsetHeight}px`;
   els["note-count"].textContent = `${playableNotes.length} / ${state.notes.length} notes · ${state.scale.length} lanes`;
   els["song-title"].disabled = false;
@@ -775,7 +944,7 @@ function seekFromPointer(clientX) {
   const rawTick = contentX / pxPerBar * barTicks();
   const gridStep = state.ticksPerBeat / 4;
   const tick = Math.max(0, Math.min(state.editorBars * barTicks(),
-    Math.round(rawTick / gridStep) * gridStep));
+    Math.ceil(rawTick / gridStep - 0.5) * gridStep));
   state.playbackStartTick = tick;
   updatePlayhead(tick);
 }
@@ -1209,7 +1378,29 @@ els["sample-root"].addEventListener("change", () => {
   saveProject();
 });
 document.addEventListener("keydown", event => {
-  if (event.code !== "Space" || event.target.matches("input, select, button, textarea")) return;
+  if (event.target.closest("input, select, textarea, [contenteditable='true']") || !state.midiName) return;
+  const command = event.ctrlKey || event.metaKey;
+  const key = event.key.toLowerCase();
+  if (command && ["a", "c", "x", "v"].includes(key)) {
+    event.preventDefault();
+    if (key === "a") { state.selection = new Set(state.notes); refreshSelection(); }
+    if (key === "c") copySelection();
+    if (key === "x" && copySelection()) deleteSelection();
+    if (key === "v") pasteSelection();
+    return;
+  }
+  if (event.key === "Escape") { state.selection.clear(); refreshSelection(); return; }
+  if (state.selection.size && ["Delete", "Backspace", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+    event.preventDefault();
+    if (["Delete", "Backspace"].includes(event.key)) deleteSelection();
+    else {
+      moveNotes([...state.selection], event.key === "ArrowLeft" ? -state.ticksPerBeat * 4 : event.key === "ArrowRight" ? state.ticksPerBeat * 4 : 0,
+        event.key === "ArrowUp" ? 1 : event.key === "ArrowDown" ? -1 : 0);
+      mapNotes(); renderAll();
+    }
+    return;
+  }
+  if (event.code !== "Space" || event.target.matches("button:not(.note)")) return;
   event.preventDefault();
   if (!els.play.disabled) play();
 });

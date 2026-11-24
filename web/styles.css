@@ -219,3 +219,8 @@ kbd { margin-left: 4px; border: 1px solid #d6dfda; padding: 2px 4px; color: var(
   body.printing .print-page:last-child { break-after: auto; }
   body.printing .print-page svg { display: block; width: 100%; height: auto; }
 }
+
+/* Selection remains visible on folded and repeated-tine notes. */
+.lanes { touch-action: none; user-select: none; }
+.note.selected { outline: 2px solid #163fba; outline-offset: -2px; filter: brightness(1.18); z-index: 4; }
+.selection-box { position: absolute; z-index: 9; pointer-events: none; border: 1px solid #356be0; background: #356be025; }
